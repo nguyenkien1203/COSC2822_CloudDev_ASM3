@@ -23,6 +23,11 @@ public class SecurityProperties {
     private Jwt jwt = new Jwt();
 
     /**
+     * Cognito configuration
+     */
+    private Cognito cognito = new Cognito();
+
+    /**
      * Endpoint security mappings
      */
     private List<EndpointSecurity> endpoints = new ArrayList<>();
@@ -38,32 +43,41 @@ public class SecurityProperties {
          * Cookie name containing JWT token
          */
         private String cookieName = "auth_token";
-
-        /**
-         * Encryption key configuration
-         */
-        private Encryption enc = new Encryption();
-
-        /**
-         * Signature key configuration
-         */
-        private Signature sig = new Signature();
     }
 
     @Data
-    public static class Encryption {
+    public static class Cognito {
         /**
-         * RSA private key for JWE decryption (Base64 encoded)
+         * AWS Region where Cognito User Pool is located
          */
-        private String privateKey;
-    }
+        private String region;
 
-    @Data
-    public static class Signature {
         /**
-         * RSA public key for JWS signature verification (Base64 encoded)
+         * Cognito User Pool ID
          */
-        private String publicKey;
+        private String userPoolId;
+
+        /**
+         * Get the JWKS URL for this Cognito User Pool
+         */
+        public String getJwksUrl() {
+            if (region == null || userPoolId == null) {
+                return null;
+            }
+            return String.format("https://cognito-idp.%s.amazonaws.com/%s/.well-known/jwks.json",
+                    region, userPoolId);
+        }
+
+        /**
+         * Get the issuer URL for this Cognito User Pool
+         */
+        public String getIssuerUrl() {
+            if (region == null || userPoolId == null) {
+                return null;
+            }
+            return String.format("https://cognito-idp.%s.amazonaws.com/%s",
+                    region, userPoolId);
+        }
     }
 
     @Data

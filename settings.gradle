@@ -1,4 +1,4 @@
-rootProject.name = 'VNPAY_Microservices'
+rootProject.name = 'CloudDev-ASM3'
 
 // Common modules
 include('common-module')

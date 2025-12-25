@@ -4,7 +4,14 @@ dependencies {
 	// Service-specific: Spring Security
 	api 'org.springframework.boot:spring-boot-starter-security'
 	
-	// Service-specific: JWT for token-based authentication
+	// AWS Cognito
+	api platform('software.amazon.awssdk:bom:2.29.51')
+	api 'software.amazon.awssdk:cognitoidentityprovider'
+	
+	// Nimbus JOSE+JWT for Cognito JWKS validation
+	api 'com.nimbusds:nimbus-jose-jwt:9.37.3'
+	
+	// Service-specific: JWT for token-based authentication (kept for backward compatibility)
 	api "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
 	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
 	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"

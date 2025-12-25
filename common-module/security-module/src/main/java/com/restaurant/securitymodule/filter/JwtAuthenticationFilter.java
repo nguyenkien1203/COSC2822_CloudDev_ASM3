@@ -2,9 +2,8 @@ package com.restaurant.securitymodule.filter;
 
 import com.restaurant.securitymodule.config.SecurityProperties;
 import com.restaurant.securitymodule.model.UserPrincipal;
-import com.restaurant.securitymodule.service.JwtValidationService;
-import io.jsonwebtoken.Claims;
-import io.jsonwebtoken.JwtException;
+import com.restaurant.securitymodule.service.CognitoJwtValidator;
+import com.restaurant.securitymodule.service.CognitoJwtValidator.CognitoClaims;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -25,18 +24,17 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * JWT Authentication Filter
- * Extracts and validates JWT from cookie, sets SecurityContext
+ * JWT Authentication Filter for Cognito tokens
+ * Extracts and validates Cognito JWT from cookie, sets SecurityContext
  * 
- * This filter is invoked by BaseSecurityFilter for JWT-protected endpoints
- * only.
+ * This filter is invoked by BaseSecurityFilter for JWT-protected endpoints.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtValidationService jwtValidationService;
+    private final CognitoJwtValidator cognitoJwtValidator;
     private final SecurityProperties securityProperties;
 
     // Request attribute to indicate this filter was already invoked by
@@ -58,6 +56,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         // Mark as processed
         request.setAttribute(ALREADY_FILTERED_ATTRIBUTE, Boolean.TRUE);
 
+        // Check if validator is initialized
+        if (!cognitoJwtValidator.isInitialized()) {
+            log.warn("Cognito JWT validator not initialized, skipping JWT authentication");
+            sendUnauthorizedError(response, "Authentication service not available");
+            return;
+        }
+
         try {
             // Extract JWT from cookie
             String token = extractTokenFromCookie(request);
@@ -68,32 +73,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            // Validate and parse JWT
-            Claims claims = jwtValidationService.validateAndParseJwe(token);
-
-            // Verify it's an access token
-            if (!jwtValidationService.isAccessToken(claims)) {
-                log.warn("Invalid token type for path: {}", request.getRequestURI());
-                sendUnauthorizedError(response, "Invalid token type");
-                return;
-            }
+            // Validate and parse Cognito JWT
+            CognitoClaims claims = cognitoJwtValidator.validateToken(token);
 
             // Extract user information
-            Integer userId = claims.get("userId", Integer.class);
-            String email = claims.get("email", String.class);
-            String rolesStr = claims.get("role", String.class);
+            String email = claims.getEmail();
+            String sub = claims.getSub();
+            List<String> roles = claims.getRoles();
 
-            // Parse roles
-            List<SimpleGrantedAuthority> authorities = parseRoles(rolesStr);
+            log.debug("Cognito JWT validated for user: {}, roles: {}", email, roles);
 
-            // Create principal and authentication
+            // Create Spring Security authorities from Cognito groups
+            List<SimpleGrantedAuthority> authorities = roles.stream()
+                    .map(SimpleGrantedAuthority::new)
+                    .collect(Collectors.toList());
+
+            // Create principal
             UserPrincipal principal = new UserPrincipal(
-                    userId != null ? userId.longValue() : null,
+                    null, // Cognito doesn't use numeric IDs
                     email,
                     authorities);
 
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(principal,
-                    null, authorities);
+            // Create authentication token
+            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                    principal,
+                    null,
+                    authorities);
 
             // Set in SecurityContext
             SecurityContextHolder.getContext().setAuthentication(authentication);
@@ -104,12 +109,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             // Continue filter chain
             filterChain.doFilter(request, response);
 
-        } catch (JwtException e) {
+        } catch (Exception e) {
             log.warn("JWT validation failed: {}", e.getMessage());
             sendUnauthorizedError(response, "Invalid or expired token");
-        } catch (Exception e) {
-            log.error("Unexpected error during JWT authentication", e);
-            sendUnauthorizedError(response, "Authentication error");
         }
     }
 
@@ -128,22 +130,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 .map(Cookie::getValue)
                 .findFirst()
                 .orElse(null);
-    }
-
-    /**
-     * Parse roles from comma-separated string
-     */
-    private List<SimpleGrantedAuthority> parseRoles(String rolesStr) {
-        if (rolesStr == null || rolesStr.isEmpty()) {
-            return List.of();
-        }
-
-        return Arrays.stream(rolesStr.split(","))
-                .map(String::trim)
-                .filter(role -> !role.isEmpty())
-                .map(role -> role.startsWith("ROLE_") ? role : "ROLE_" + role)
-                .map(SimpleGrantedAuthority::new)
-                .collect(Collectors.toList());
     }
 
     /**

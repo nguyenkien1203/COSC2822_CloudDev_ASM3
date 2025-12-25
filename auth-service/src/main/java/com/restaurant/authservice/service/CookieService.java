@@ -14,12 +14,12 @@ public class CookieService {
 
     public ResponseCookie createAccessTokenCookie(String token) {
         return ResponseCookie.from(cookieName, token)
-                .httpOnly(true)      // 1. Hide from JavaScript (XSS Protection)
-                .secure(false)       // 2. Set to TRUE in Production (HTTPS only)
-                .path("/")           // 3. Available for the whole site
+                .httpOnly(true) // 1. Hide from JavaScript (XSS Protection)
+                .secure(false) // 2. Set to TRUE in Production (HTTPS only)
+                .path("/") // 3. Available for the whole site
                 .maxAge(expirationDays * 24 * 60 * 60) // Duration in seconds
-                .sameSite("Lax")     // 4. Prevent CSRF (Lax is more permissive than Strict for testing)
-                .domain(null)        // 5. Don't set domain to work with localhost
+                .sameSite("Lax") // 4. Prevent CSRF (Lax is more permissive than Strict for testing)
+                .domain(null) // 5. Don't set domain to work with localhost
                 .build();
     }
 
@@ -51,9 +51,12 @@ public class CookieService {
                 .maxAge(0) // Expire immediately
                 .build();
     }
-    
+
     public String getRefreshTokenCookieName() {
         return "refresh_" + cookieName;
     }
 
+    public String getAccessTokenCookieName() {
+        return cookieName;
+    }
 }

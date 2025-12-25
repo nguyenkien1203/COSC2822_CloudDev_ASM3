@@ -26,37 +26,24 @@ spring:
 server:
   port: 8081
 
-# JWT Configuration (Auth Service Specific)
-jwt:
-  # Legacy HMAC secret (for backward compatibility with JwtUtils)
-  secret: ${JWT_SECRET:JrqaDYf2smUIwjvb96nBvnNdeT3OQX1vf1N9CHJpfps=}
-  expiration: ${JWT_EXPIRATION:86400000} # 24 hours in milliseconds
-  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000} # 7 days in milliseconds
-  
-  # Encryption Key Pair (RSA-based)
-  enc:
-    private-key: ${JWT_ENC_PRIVATE_KEY:}
-    public-key: ${JWT_ENC_PUBLIC_KEY:}
+# AWS Cognito Configuration
+aws:
+  cognito:
+    region: ${AWS_COGNITO_REGION:ap-southeast-1}
+    user-pool-id: ${AWS_COGNITO_USER_POOL_ID:}
+    client-id: ${AWS_COGNITO_CLIENT_ID:}
+    client-secret: ${AWS_COGNITO_CLIENT_SECRET:}
 
-  # Signing Key Pair (RSA-based)
-  sig:
-    private-key: ${JWT_SIG_PRIVATE_KEY:}
-    public-key: ${JWT_SIG_PUBLIC_KEY:}
-  
-  # JWE/JWS Configuration
-  access-token-expiration-ms: 900000 # 15 minutes (recommended for access tokens)
-  refresh-token-expiration-ms: 604800000 # 7 days
-  key-size: 2048 # RSA key size (2048 or 4096)
-  enable-encryption: true # Enable JWE encryption
-  key-rotation-days: 90 # Key rotation interval in days
-  
-  # Cookie Configuration
+# JWT/Cookie Configuration (used for storing Cognito tokens in cookies)
+jwt:
   cookie-name: auth_token
   refresh-cookie-name: refresh_auth_token
-  expiration-days: 7
+  expiration-days: 1  # Access token cookie (short-lived, Cognito tokens expire in 1 hour by default)
   refresh-expiration-days: 30
 
 # Additional logging for Auth Service
 logging:
   level:
     org.springframework.security: DEBUG
+    com.restaurant.authservice: DEBUG
+    software.amazon.awssdk: INFO

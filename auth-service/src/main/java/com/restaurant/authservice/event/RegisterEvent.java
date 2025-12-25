@@ -4,7 +4,6 @@ import com.restaurant.kafkamodule.event.BaseEvent;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
 
-
 @Data
 @SuperBuilder
 @AllArgsConstructor
@@ -26,5 +25,9 @@ public class RegisterEvent extends BaseEvent {
 
     private String address;
 
+    /**
+     * Cognito user sub (unique identifier)
+     */
+    private String cognitoSub;
 
 }

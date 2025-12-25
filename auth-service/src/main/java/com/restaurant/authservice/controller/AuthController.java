@@ -1,14 +1,9 @@
 package com.restaurant.authservice.controller;
 
-import com.restaurant.authservice.dto.AuthDto;
-import com.restaurant.authservice.dto.AuthResponseDto;
-import com.restaurant.authservice.dto.LoginRequest;
-import com.restaurant.authservice.dto.RegisterDto;
-import com.restaurant.authservice.service.AuthService;
+import com.restaurant.authservice.dto.*;
+import com.restaurant.authservice.service.CognitoAuthService;
+import com.restaurant.authservice.service.CognitoJwtValidator;
 import com.restaurant.authservice.service.CookieService;
-import com.restaurant.authservice.service.impl.JwtServiceImpl;
-import com.restaurant.factorymodule.exception.DataFactoryException;
-import io.jsonwebtoken.Claims;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
@@ -21,59 +16,64 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
 
+/**
+ * Authentication controller using AWS Cognito
+ */
 @Slf4j
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
     @Autowired
-    private JwtServiceImpl jwtService;
+    private CognitoAuthService cognitoAuthService;
 
     @Autowired
     private CookieService cookieService;
 
     @Autowired
-    private AuthService authService;
+    private CognitoJwtValidator cognitoJwtValidator;
 
+    /**
+     * Login with Cognito
+     */
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
         try {
-            // 1. Authenticate user via AuthService
-            AuthDto authDto = authService.login(loginRequest.getEmail(), loginRequest.getPassword());
+            log.info("Login attempt for: {}", loginRequest.getEmail());
 
-            // 2. Generate JWT Tokens with user claims
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("sub", authDto.getEmail());
-            claims.put("userId", authDto.getId());
-            claims.put("role", authDto.getRole().name());
-            claims.put("isActive", authDto.getIsActive());
+            CognitoAuthResponse authResponse = cognitoAuthService.login(
+                    loginRequest.getEmail(),
+                    loginRequest.getPassword());
 
-            // Generate access token (short-lived)
-            String accessToken = jwtService.generateAccessToken(claims);
+            // Check if user needs to set a new password
+            if (authResponse.isRequiresNewPassword()) {
+                return ResponseEntity.status(HttpStatus.OK)
+                        .body(Map.of(
+                                "challenge", "NEW_PASSWORD_REQUIRED",
+                                "session", authResponse.getSession(),
+                                "email", authResponse.getEmail(),
+                                "message", "Please set a new password"));
+            }
 
-            // Generate refresh token (long-lived)
-            String refreshToken = jwtService.generateRefreshToken(claims);
+            // Create cookies with Cognito tokens
+            // Use ID token for auth cookie (contains user claims)
+            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(authResponse.getIdToken());
+            ResponseCookie refreshCookie = cookieService.createRefreshTokenCookie(authResponse.getRefreshToken());
 
-            // 3. Create the Cookies
-            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(accessToken);
-            ResponseCookie refreshCookie = cookieService.createRefreshTokenCookie(refreshToken);
-
-            // 4. Send response with Set-Cookie headers
-            AuthResponseDto authResponseDto = AuthResponseDto.builder()
-                    .email(authDto.getEmail())
-                    .role(authDto.getRole().name())
-                    .active(authDto.getIsActive())
+            AuthResponseDto responseDto = AuthResponseDto.builder()
+                    .email(authResponse.getEmail())
+                    .active(true)
                     .build();
 
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                     .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(authResponseDto);
+                    .body(responseDto);
 
-        } catch (DataFactoryException e) {
+        } catch (RuntimeException e) {
             log.error("Login failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("error", "Invalid credentials", "message", e.getMessage()));
@@ -84,24 +84,64 @@ public class AuthController {
         }
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<?> logout() {
+    /**
+     * Respond to NEW_PASSWORD_REQUIRED challenge
+     */
+    @PostMapping("/set-password")
+    public ResponseEntity<?> setNewPassword(@RequestBody NewPasswordRequest request) {
         try {
-            // 1. Get current user from security context
-            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.isAuthenticated() &&
-                    !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken)) {
+            log.info("Setting new password for: {}", request.getEmail());
 
-                String email = auth.getName();
-                // 2. Call service to handle logout and publish event
-                authService.logout(email);
+            CognitoAuthResponse authResponse = cognitoAuthService.respondToNewPasswordChallenge(request);
+
+            // Create cookies with Cognito tokens
+            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(authResponse.getIdToken());
+            ResponseCookie refreshCookie = cookieService.createRefreshTokenCookie(authResponse.getRefreshToken());
+
+            AuthResponseDto responseDto = AuthResponseDto.builder()
+                    .email(authResponse.getEmail())
+                    .active(true)
+                    .build();
+
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
+                    .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                    .body(responseDto);
+
+        } catch (Exception e) {
+            log.error("Set password failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Failed to set password", "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Logout from Cognito
+     */
+    @PostMapping("/logout")
+    public ResponseEntity<?> logout(HttpServletRequest request) {
+        try {
+            // Get access token from cookie to revoke it in Cognito
+            String accessToken = getTokenFromCookie(request, cookieService.getAccessTokenCookieName());
+
+            if (accessToken != null) {
+                // Try to get email for event publishing
+                try {
+                    CognitoJwtValidator.CognitoClaims claims = cognitoJwtValidator.validateToken(accessToken);
+                    cognitoAuthService.publishLogoutEvent(claims.getEmail());
+                } catch (Exception e) {
+                    log.debug("Could not extract claims for logout event");
+                }
+
+                // Sign out from Cognito
+                cognitoAuthService.logout(accessToken);
             }
         } catch (Exception e) {
-            log.error("Error publishing logout event", e);
-            // Don't fail the logout if Kafka publish fails
+            log.warn("Error during Cognito logout: {}", e.getMessage());
+            // Continue to delete cookies even if Cognito logout fails
         }
 
-        // 3. Delete both access and refresh token cookies
+        // Delete cookies
         ResponseCookie accessCookie = cookieService.deleteAccessTokenCookie();
         ResponseCookie refreshCookie = cookieService.deleteRefreshTokenCookie();
 
@@ -111,63 +151,41 @@ public class AuthController {
                 .body(Map.of("message", "Logout successful"));
     }
 
+    /**
+     * Refresh access token using Cognito refresh token
+     */
     @PostMapping("/refresh")
     public ResponseEntity<?> refreshToken(HttpServletRequest request) {
         try {
-            // 1. Extract refresh token from cookie
-            String refreshToken = null;
-            if (request.getCookies() != null) {
-                for (Cookie cookie : request.getCookies()) {
-                    if (cookieService.getRefreshTokenCookieName().equals(cookie.getName())) {
-                        refreshToken = cookie.getValue();
-                        break;
-                    }
-                }
-            }
+            String refreshToken = getTokenFromCookie(request, cookieService.getRefreshTokenCookieName());
 
             if (refreshToken == null || refreshToken.isEmpty()) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Refresh token not found"));
             }
 
-            // 2. Validate and parse refresh token
-            if (!jwtService.validateRefreshToken(refreshToken)) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(Map.of("error", "Invalid or expired refresh token"));
+            // Get email from current ID token (if available)
+            String email = null;
+            String currentIdToken = getTokenFromCookie(request, cookieService.getAccessTokenCookieName());
+            if (currentIdToken != null) {
+                try {
+                    CognitoJwtValidator.CognitoClaims claims = cognitoJwtValidator.validateToken(currentIdToken);
+                    email = claims.getEmail();
+                } catch (Exception e) {
+                    log.debug("Could not extract email from expired token");
+                }
             }
 
-            Claims claims = jwtService.parseJwePayload(refreshToken);
+            CognitoAuthResponse authResponse = cognitoAuthService.refreshToken(refreshToken, email);
 
-            // 3. Extract user information from refresh token
-            String email = claims.getSubject();
-            Long userId = claims.get("userId", Long.class);
-            String role = claims.get("role", String.class);
-            Boolean isActive = claims.get("isActive", Boolean.class);
+            // Create new access cookie with new ID token
+            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(authResponse.getIdToken());
 
-            // 4. Generate new access token
-            Map<String, Object> newClaims = new HashMap<>();
-            newClaims.put("sub", email);
-            newClaims.put("userId", userId);
-            newClaims.put("role", role);
-            newClaims.put("isActive", isActive);
-
-            String newAccessToken = jwtService.generateAccessToken(newClaims);
-
-            // 5. Publish token refresh event via service
-            authService.publishTokenRefreshEvent(userId, email);
-
-            // 6. Create new access token cookie
-            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(newAccessToken);
-
-            // 7. Send response
             return ResponseEntity.ok()
                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                     .body(Map.of(
-                            "message", "Access token refreshed successfully",
-                            "user", Map.of(
-                                    "id", userId,
-                                    "email", email,
-                                    "role", role)));
+                            "message", "Token refreshed successfully",
+                            "email", authResponse.getEmail() != null ? authResponse.getEmail() : ""));
 
         } catch (Exception e) {
             log.error("Token refresh failed", e);
@@ -176,10 +194,12 @@ public class AuthController {
         }
     }
 
+    /**
+     * Get current authenticated user info
+     */
     @GetMapping("/me")
     public ResponseEntity<?> getCurrentUser() {
         try {
-            // Get the authenticated user from SecurityContext (set by JwtCookieFilter)
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
             if (authentication == null || !authentication.isAuthenticated() ||
@@ -188,19 +208,16 @@ public class AuthController {
                         .body(Map.of("error", "Not authenticated"));
             }
 
-            // The principal is the email (username) we set in JwtCookieFilter
             String email = authentication.getName();
+            String roles = authentication.getAuthorities().stream()
+                    .map(Object::toString)
+                    .reduce((a, b) -> a + ", " + b)
+                    .orElse("");
 
-            // Fetch user details from database
-            AuthDto authDto = authService.getUserByEmail(email);
-
-            AuthResponseDto authResponseDto = AuthResponseDto.builder()
-                    .email(authDto.getEmail())
-                    .role(authDto.getRole().name())
-                    .active(authDto.getIsActive())
-                    .build();
-
-            return ResponseEntity.ok(authResponseDto);
+            return ResponseEntity.ok(Map.of(
+                    "email", email,
+                    "roles", roles,
+                    "authenticated", true));
 
         } catch (Exception e) {
             log.error("Error fetching current user", e);
@@ -209,10 +226,13 @@ public class AuthController {
         }
     }
 
+    /**
+     * Register new user in Cognito
+     */
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterDto registerRequest) {
         try {
-            // 1. Validate input
+            // Validate input
             if (registerRequest.getEmail() == null || registerRequest.getEmail().isEmpty()) {
                 return ResponseEntity.badRequest()
                         .body(Map.of("error", "Email is required"));
@@ -222,41 +242,24 @@ public class AuthController {
                         .body(Map.of("error", "Password is required"));
             }
 
-            // 2. Register user via AuthService (handles registration and Kafka event
-            // publishing)
-            AuthDto createdUser = authService.register(registerRequest);
+            // Register user via Cognito
+            CognitoAuthResponse authResponse = cognitoAuthService.register(registerRequest);
 
-            // 3. Generate JWT Tokens for auto-login after registration
-            Map<String, Object> claims = new HashMap<>();
-            claims.put("sub", createdUser.getEmail());
-            claims.put("userId", createdUser.getId());
-            claims.put("role", "USER"); // Default role for new registrations
-            claims.put("isActive", createdUser.getIsActive());
+            // Create cookies with tokens (auto-login after registration)
+            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(authResponse.getIdToken());
+            ResponseCookie refreshCookie = cookieService.createRefreshTokenCookie(authResponse.getRefreshToken());
 
-            // Generate access token (short-lived)
-            String accessToken = jwtService.generateAccessToken(claims);
-
-            // Generate refresh token (long-lived)
-            String refreshToken = jwtService.generateRefreshToken(claims);
-
-            // 6. Create the Cookies
-            ResponseCookie accessCookie = cookieService.createAccessTokenCookie(accessToken);
-            ResponseCookie refreshCookie = cookieService.createRefreshTokenCookie(refreshToken);
-
-            // 7. Send response with Set-Cookie headers
-
-            AuthResponseDto authResponseDto = AuthResponseDto.builder()
-                    .email(createdUser.getEmail())
-                    .role(createdUser.getRole().name())
-                    .active(createdUser.getIsActive())
+            AuthResponseDto responseDto = AuthResponseDto.builder()
+                    .email(authResponse.getEmail())
+                    .active(true)
                     .build();
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .header(HttpHeaders.SET_COOKIE, accessCookie.toString())
                     .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
-                    .body(authResponseDto);
+                    .body(responseDto);
 
-        } catch (DataFactoryException e) {
+        } catch (RuntimeException e) {
             log.error("Registration failed: {}", e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("error", "Registration failed", "message", e.getMessage()));
@@ -267,4 +270,17 @@ public class AuthController {
         }
     }
 
+    /**
+     * Helper method to extract token from cookie
+     */
+    private String getTokenFromCookie(HttpServletRequest request, String cookieName) {
+        if (request.getCookies() == null) {
+            return null;
+        }
+        return Arrays.stream(request.getCookies())
+                .filter(c -> cookieName.equals(c.getName()))
+                .map(Cookie::getValue)
+                .findFirst()
+                .orElse(null);
+    }
 }

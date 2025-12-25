@@ -97,10 +97,10 @@ restaurant:
     default-type: JWT
     jwt:
       cookie-name: auth_token
-      enc:
-        private-key: ${JWT_ENC_PRIVATE_KEY:}
-      sig:
-        public-key: ${JWT_SIG_PUBLIC_KEY:}
+    # AWS Cognito Configuration for JWT validation
+    cognito:
+      region: ${AWS_COGNITO_REGION:ap-southeast-1}
+      user-pool-id: ${AWS_COGNITO_USER_POOL_ID:}
     endpoints:
       - path: /actuator/**
         type: PUBLIC

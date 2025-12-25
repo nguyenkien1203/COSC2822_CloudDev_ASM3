@@ -1,14 +1,12 @@
-description = 'Security Module - Shared security filters and JWT validation'
+description = 'Security Module - Shared security filters and Cognito JWT validation'
 
 dependencies {
     // Spring Security
     api 'org.springframework.boot:spring-boot-starter-security'
     api 'org.springframework.boot:spring-boot-starter-web'
     
-    // JWT (use version from root build.gradle)
-    api "io.jsonwebtoken:jjwt-api:$jjwtVersion"
-    runtimeOnly "io.jsonwebtoken:jjwt-impl:$jjwtVersion"
-    runtimeOnly "io.jsonwebtoken:jjwt-jackson:$jjwtVersion"
+    // Nimbus JOSE+JWT for Cognito JWKS validation
+    api 'com.nimbusds:nimbus-jose-jwt:9.37.3'
     
     // Configuration processor
     annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
