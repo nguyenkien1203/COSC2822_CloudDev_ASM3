@@ -28,6 +28,16 @@ public class BaseSecurityFilter extends OncePerRequestFilter {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AntPathMatcher pathMatcher = new AntPathMatcher();
 
+    /**
+     * Skip this filter entirely for actuator endpoints (health checks)
+     * This ensures ALB health checks always pass regardless of security config
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return pathMatcher.match("/actuator/**", path);
+    }
+
     @Override
     protected void doFilterInternal(
             @NonNull HttpServletRequest request,

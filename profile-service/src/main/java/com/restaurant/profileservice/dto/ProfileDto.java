@@ -2,7 +2,6 @@ package com.restaurant.profileservice.dto;
 
 import com.restaurant.data.model.IBaseModel;
 import jakarta.validation.constraints.Email;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Builder;
 import lombok.Data;
@@ -14,9 +13,8 @@ import java.time.LocalDateTime;
 public class ProfileDto implements IBaseModel<Long> {
     private Long id;
 
-    private Long userId;
+    private String userId;  // Cognito sub (UUID string)
 
-    @NotBlank(message = "Full name is required")
     private String fullName;
 
     @Pattern(regexp = "^[0-9]{10,15}$", message = "Phone number must be 10-15 digits")

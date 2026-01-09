@@ -4,14 +4,12 @@ import com.restaurant.factorymodule.exception.DataFactoryException;
 import com.restaurant.profileservice.dto.CreateProfileRequest;
 import com.restaurant.profileservice.dto.ProfileDto;
 import com.restaurant.profileservice.dto.UpdateProfileRequest;
-import com.restaurant.profileservice.event.DeleteProfileEvent;
 import com.restaurant.securitymodule.model.UserPrincipal;
 import com.restaurant.profileservice.filter.ProfileFilter;
 import com.restaurant.profileservice.service.ProfileProducerService;
 import com.restaurant.profileservice.service.ProfileService;
 import com.restaurant.redismodule.exception.CacheException;
 import jakarta.validation.Valid;
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,7 +41,7 @@ public class ProfileController {
             @AuthenticationPrincipal UserPrincipal principal)
             throws CacheException, DataFactoryException {
 
-        Long userId = principal.getUserId();
+        String userId = principal.getUserId();
         log.info("GET /profiles/me - userId: {}", userId);
         ProfileDto profile = profileService.getProfileByUserId(userId);
         return ResponseEntity.ok(profile);
@@ -58,7 +56,7 @@ public class ProfileController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody CreateProfileRequest request) throws DataFactoryException {
 
-        Long userId = principal.getUserId();
+        String userId = principal.getUserId();
         log.info("POST /profiles - userId: {}", userId);
         ProfileDto profile = profileService.createProfile(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(profile);
@@ -73,7 +71,7 @@ public class ProfileController {
             @AuthenticationPrincipal UserPrincipal principal,
             @Valid @RequestBody UpdateProfileRequest request) throws CacheException, DataFactoryException {
 
-        Long userId = principal.getUserId();
+        String userId = principal.getUserId();
         log.info("PUT /profiles/me - userId: {}", userId);
 
         // First get the profile ID for this user
@@ -143,7 +141,7 @@ public class ProfileController {
      */
     @GetMapping("/user/{userId}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ProfileDto> getProfileByUserId(@PathVariable Long userId)
+    public ResponseEntity<ProfileDto> getProfileByUserId(@PathVariable String userId)
             throws CacheException, DataFactoryException {
 
         log.info("GET /profiles/user/{} - Admin access", userId);

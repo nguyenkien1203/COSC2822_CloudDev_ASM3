@@ -11,15 +11,12 @@ dependencies {
 	// Nimbus JOSE+JWT for Cognito JWKS validation
 	api 'com.nimbusds:nimbus-jose-jwt:9.37.3'
 	
-	// Service-specific: JWT for token-based authentication (kept for backward compatibility)
-	api "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
-	runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
-	runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
 	
 	// Internal modules
 	api project(':common-module:redis-module')
 	api project(':common-module:factory-module')
-	api project(':common-module:kafka-module')
+	api project(':common-module:sqs-module')
 
 	
 	// Testing

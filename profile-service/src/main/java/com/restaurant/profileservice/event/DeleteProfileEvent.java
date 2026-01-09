@@ -13,5 +13,5 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class DeleteProfileEvent extends BaseEvent {
-    private Long userId;
+    private String userId;  // Cognito sub (UUID string)
 }

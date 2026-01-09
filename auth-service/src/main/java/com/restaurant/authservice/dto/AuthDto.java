@@ -1,6 +1,5 @@
 package com.restaurant.authservice.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.restaurant.authservice.entity.AuthEntity;
 import com.restaurant.data.model.IBaseModel;
@@ -25,7 +24,8 @@ public class AuthDto implements IBaseModel<Long> {
 
     private AuthEntity.UserRole role;
 
-
-
-
+    /**
+     * Cognito sub (UUID) - unique identifier from Cognito
+     */
+    private String cognitoSub;
 }

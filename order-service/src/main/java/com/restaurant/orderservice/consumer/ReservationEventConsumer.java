@@ -1,14 +1,12 @@
 package com.restaurant.orderservice.consumer;
 
-import com.restaurant.kafkamodule.config.KafkaTopicConfig;
+import com.restaurant.sqsmodule.config.SqsQueueConfig;
 import com.restaurant.orderservice.event.CustomerSeatedEvent;
 import com.restaurant.orderservice.event.ReservationCancelledEvent;
 import com.restaurant.orderservice.service.OrderService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.handler.annotation.Header;
+import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
@@ -28,18 +26,14 @@ public class ReservationEventConsumer {
      * Handle customer seated event - enables dine-in ordering for this table.
      * If there's a pre-order linked, it can be started for preparation.
      */
-    @KafkaListener(topics = KafkaTopicConfig.CUSTOMER_SEATED_TOPIC, groupId = "${spring.kafka.consumer.group-id:order-service-group}", containerFactory = "kafkaListenerContainerFactory")
-    public void handleCustomerSeated(
-            @Payload CustomerSeatedEvent event,
-            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
-            @Header(KafkaHeaders.OFFSET) long offset) {
+    @SqsListener(queueNames = SqsQueueConfig.CUSTOMER_SEATED_QUEUE)
+    public void handleCustomerSeated(@Payload CustomerSeatedEvent event) {
 
         try {
             log.info(
-                    "Received CUSTOMER_SEATED event - eventId: {}, reservationId: {}, tableId: {}, preOrderId: {}, topic: {}, offset: {}",
+                    "Received CUSTOMER_SEATED event - eventId: {}, reservationId: {}, tableId: {}, preOrderId: {}",
                     event.getEventId(), event.getReservationId(), event.getTableId(),
-                    event.getPreOrderId(), topic, offset);
+                    event.getPreOrderId());
 
             // If there's a pre-order linked to this reservation, start preparation
             if (event.getPreOrderId() != null) {
@@ -61,18 +55,14 @@ public class ReservationEventConsumer {
     /**
      * Handle reservation cancelled event - cancels any linked pre-orders.
      */
-    @KafkaListener(topics = KafkaTopicConfig.RESERVATION_CANCELLED_TOPIC, groupId = "${spring.kafka.consumer.group-id:order-service-group}", containerFactory = "kafkaListenerContainerFactory")
-    public void handleReservationCancelled(
-            @Payload ReservationCancelledEvent event,
-            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
-            @Header(KafkaHeaders.OFFSET) long offset) {
+    @SqsListener(queueNames = SqsQueueConfig.RESERVATION_CANCELLED_QUEUE)
+    public void handleReservationCancelled(@Payload ReservationCancelledEvent event) {
 
         try {
             log.info(
-                    "Received RESERVATION_CANCELLED event - eventId: {}, reservationId: {}, preOrderId: {}, reason: {}, topic: {}, offset: {}",
+                    "Received RESERVATION_CANCELLED event - eventId: {}, reservationId: {}, preOrderId: {}, reason: {}",
                     event.getEventId(), event.getReservationId(), event.getPreOrderId(),
-                    event.getReason(), topic, offset);
+                    event.getReason());
 
             // Cancel the linked pre-order if exists
             if (event.getPreOrderId() != null) {

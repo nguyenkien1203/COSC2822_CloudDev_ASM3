@@ -1,12 +1,12 @@
 package com.restaurant.authservice.service.impl;
 
 import com.restaurant.authservice.event.LoginEvent;
-import com.restaurant.authservice.event.RegisterEvent;
+import com.restaurant.sqsmodule.event.RegisterEvent;
 import com.restaurant.authservice.event.TokenRefreshEvent;
 import com.restaurant.authservice.event.UserLogoutEvent;
 import com.restaurant.authservice.service.AuthProducerService;
-import com.restaurant.kafkamodule.config.KafkaTopicConfig;
-import com.restaurant.kafkamodule.service.BaseKafkaProducer;
+import com.restaurant.sqsmodule.config.SqsQueueConfig;
+import com.restaurant.sqsmodule.service.BaseSqsProducer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
@@ -18,50 +18,41 @@ import org.springframework.stereotype.Service;
 @Service
 public class AuthProducerServiceImpl implements AuthProducerService {
 
-    private final BaseKafkaProducer kafkaProducer;
+    private final BaseSqsProducer sqsProducer;
 
-    public AuthProducerServiceImpl(BaseKafkaProducer kafkaProducer) {
-        this.kafkaProducer = kafkaProducer;
+    public AuthProducerServiceImpl(BaseSqsProducer sqsProducer) {
+        this.sqsProducer = sqsProducer;
     }
 
     @Override
     public void publishUserRegisteredEvent(RegisterEvent event) {
         log.debug("Publishing user registered event for userId: {}", event.getId());
-        kafkaProducer.sendEvent(
-            KafkaTopicConfig.USER_REGISTERED_TOPIC,
-            event.getId().toString(),
-            event
-        );
+        sqsProducer.sendEvent(
+                SqsQueueConfig.USER_REGISTERED_QUEUE,
+                event);
     }
 
     @Override
     public void publishUserLoginEvent(LoginEvent event) {
         log.debug("Publishing user login event for userId: {}", event.getId());
-        kafkaProducer.sendEvent(
-            KafkaTopicConfig.USER_LOGIN_TOPIC,
-            event.getId().toString(),
-            event
-        );
+        sqsProducer.sendEvent(
+                SqsQueueConfig.USER_LOGIN_QUEUE,
+                event);
     }
 
     @Override
     public void publishUserLogoutEvent(UserLogoutEvent event) {
         log.debug("Publishing user logout event for userId: {}", event.getUserId());
-        kafkaProducer.sendEvent(
-            KafkaTopicConfig.USER_LOGOUT_TOPIC,
-            event.getUserId().toString(),
-            event
-        );
+        sqsProducer.sendEvent(
+                SqsQueueConfig.USER_LOGOUT_QUEUE,
+                event);
     }
 
     @Override
     public void publishTokenRefreshedEvent(TokenRefreshEvent event) {
         log.debug("Publishing token refreshed event for userId: {}", event.getId());
-        kafkaProducer.sendEvent(
-            KafkaTopicConfig.TOKEN_REFRESHED_TOPIC,
-            event.getId().toString(),
-            event
-        );
+        sqsProducer.sendEvent(
+                SqsQueueConfig.TOKEN_REFRESHED_QUEUE,
+                event);
     }
 }
-

@@ -271,6 +271,62 @@ public class AuthController {
     }
 
     /**
+     * Confirm user signup with verification code
+     */
+    @PostMapping("/confirm")
+    public ResponseEntity<?> confirmSignUp(@RequestBody ConfirmSignUpRequest confirmRequest) {
+        try {
+            log.info("Confirming signup for: {}", confirmRequest.getEmail());
+
+            if (confirmRequest.getEmail() == null || confirmRequest.getEmail().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Email is required"));
+            }
+            if (confirmRequest.getConfirmationCode() == null || confirmRequest.getConfirmationCode().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Confirmation code is required"));
+            }
+
+            cognitoAuthService.confirmSignUp(confirmRequest.getEmail(), confirmRequest.getConfirmationCode());
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Email confirmed successfully. You can now login.",
+                    "email", confirmRequest.getEmail()));
+
+        } catch (RuntimeException e) {
+            log.error("Confirmation failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Confirmation failed", "message", e.getMessage()));
+        }
+    }
+
+    /**
+     * Resend confirmation code to user's email
+     */
+    @PostMapping("/resend-code")
+    public ResponseEntity<?> resendConfirmationCode(@RequestBody ResendCodeRequest resendRequest) {
+        try {
+            log.info("Resending confirmation code to: {}", resendRequest.getEmail());
+
+            if (resendRequest.getEmail() == null || resendRequest.getEmail().isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "Email is required"));
+            }
+
+            cognitoAuthService.resendConfirmationCode(resendRequest.getEmail());
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "Confirmation code sent successfully. Please check your email.",
+                    "email", resendRequest.getEmail()));
+
+        } catch (RuntimeException e) {
+            log.error("Resend code failed: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", "Failed to resend code", "message", e.getMessage()));
+        }
+    }
+
+    /**
      * Helper method to extract token from cookie
      */
     private String getTokenFromCookie(HttpServletRequest request, String cookieName) {

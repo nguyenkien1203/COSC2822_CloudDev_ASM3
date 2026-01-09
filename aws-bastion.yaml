@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Bastion Host for SSH tunneling to private RDS and Redis (Learner Lab compatible)'
+
+Parameters:
+  InfraStackName:
+    Type: String
+    Description: Name of the infrastructure stack to import VPC and subnets
+    Default: restaurant-infra-2
+  AllowedSSHCidr:
+    Type: String
+    Default: '0.0.0.0/0'
+    Description: CIDR block allowed to SSH to the bastion host
+
+Resources:
+  # Security Group for Bastion Host
+  BastionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable SSH access to Bastion Host
+      VpcId: 
+        Fn::ImportValue: !Sub "${InfraStackName}-VpcId"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref AllowedSSHCidr
+        # Allow all outbound traffic to VPC CIDR for RDS/Redis access
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: restaurant-bastion-sg
+
+  # Bastion EC2 Instance
+  BastionHost:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: t2.micro
+      # vockey is the default key pair in AWS Learner Lab
+      KeyName: vockey
+      # Amazon Linux 2023 AMI (us-east-1, x86_64)
+      ImageId: ami-0453ec754f44f9a4a
+      # Use LabInstanceProfile for Learner Lab
+      IamInstanceProfile: LabInstanceProfile
+      SubnetId: 
+        Fn::ImportValue: !Sub "${InfraStackName}-PublicSubnet1"
+      SecurityGroupIds:
+        - !Ref BastionSecurityGroup
+      Tags:
+        - Key: Name
+          Value: restaurant-bastion
+      UserData:
+        Fn::Base64: |
+          #!/bin/bash
+          yum update -y
+          yum install -y postgresql15
+
+Outputs:
+  BastionPublicIP:
+    Description: Public IP of the Bastion Host
+    Value: !GetAtt BastionHost.PublicIp
+  BastionSecurityGroupId:
+    Description: Security Group ID of the Bastion Host (add this to DB/Cache SG manually)
+    Value: !Ref BastionSecurityGroup
+  SSHTunnelCommandRDS:
+    Description: SSH tunnel command for RDS access
+    Value: !Sub 
+      - "ssh -i labsuser.pem -L 5432:${RDSEndpoint}:5432 ec2-user@${BastionIP}"
+      - RDSEndpoint: 
+          Fn::ImportValue: !Sub "${InfraStackName}-RDSEndpoint"
+        BastionIP: !GetAtt BastionHost.PublicIp
+  SSHTunnelCommandRedis:
+    Description: SSH tunnel command for Redis access
+    Value: !Sub 
+      - "ssh -i labsuser.pem -L 6379:${RedisEndpoint}:6379 ec2-user@${BastionIP}"
+      - RedisEndpoint: 
+          Fn::ImportValue: !Sub "${InfraStackName}-RedisEndpoint"
+        BastionIP: !GetAtt BastionHost.PublicIp
+  ManualSteps:
+    Description: Manual steps required after stack creation
+    Value: !Sub |
+      IMPORTANT: After stack creation, manually add ingress rules to the DB Security Group:
+      1. Go to EC2 -> Security Groups
+      2. Find the security group for RDS (restaurant-infra-2-DBSecurityGroup-xxx)
+      3. Add inbound rule: PostgreSQL (5432) from ${BastionSecurityGroup}
+      4. For Redis: add inbound rule: Custom TCP (6379) from ${BastionSecurityGroup}

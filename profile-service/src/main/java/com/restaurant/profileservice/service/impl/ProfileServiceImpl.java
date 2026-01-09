@@ -36,7 +36,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     @Transactional
-    public ProfileDto createProfile(Long userId, CreateProfileRequest request) throws DataFactoryException {
+    public ProfileDto createProfile(String userId, CreateProfileRequest request) throws DataFactoryException {
         log.info("Creating profile for userId: {}", userId);
         ProfileFilter profileFilter = ProfileFilter.builder()
                 .userId(userId)
@@ -62,7 +62,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     @Override
-    public ProfileDto getProfileByUserId(Long userId) throws CacheException, DataFactoryException {
+    public ProfileDto getProfileByUserId(String userId) throws CacheException, DataFactoryException {
         log.info("Getting profile by userId: {}", userId);
         ProfileFilter filter = ProfileFilter.builder()
                 .userId(userId)
@@ -98,7 +98,7 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public void deleteProfile(Long id) throws DataFactoryException, CacheException {
 
-        Long userId = profileFactory.getModel(id).getUserId();
+        String userId = profileFactory.getModel(id).getUserId();
 
         log.info("Deleting profile with id: {}", id);
         if (!profileFactory.exists(id, null)) {
@@ -125,17 +125,18 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     @Transactional
-    public void createProfileFromUserRegistration(Long userId, String email, String fullName, String phone, String address) throws DataFactoryException {
+    public void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address) throws DataFactoryException {
         log.info("Auto-creating profile from user registration - userId: {}, email: {}", userId, email);
 
-        // Check if profile already exists (in case of duplicate events)
+        // Check if profile already exists by email (in case of duplicate events)
         ProfileFilter filter = ProfileFilter.builder()
-                .userId(userId)
+                .email(email)
                 .build();
         if (profileFactory.exists(null, filter)) {
-            log.warn("Profile already exists for userId: {}, skipping creation", userId);
+            log.warn("Profile already exists for email: {}, skipping creation", email);
             return;
         }
+        
         ProfileDto profileDto = ProfileDto.builder()
                 .userId(userId)
                 .email(email)
@@ -144,6 +145,6 @@ public class ProfileServiceImpl implements ProfileService {
                 .address(address)
                 .build();
         profileFactory.create(profileDto);
-        log.info("Profile auto-created for userId: {}", userId);
+        log.info("Profile auto-created for email: {}", email);
     }
 }

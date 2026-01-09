@@ -21,14 +21,17 @@ public class ProfileEntity implements IBaseEntity<Long> {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", unique = true, nullable = false)
-    private Long userId;  // FK to auth service
+    @Column(name = "user_id", unique = true)
+    private String userId;  // Cognito sub (UUID string)
 
-    @Column(name = "full_name", nullable = false)
+    @Column(name = "full_name")
     private String fullName;
 
     private String phone;
+    
+    @Column(unique = true)
     private String email;
+    
     private String address;
 
     @Column(name = "created_at")

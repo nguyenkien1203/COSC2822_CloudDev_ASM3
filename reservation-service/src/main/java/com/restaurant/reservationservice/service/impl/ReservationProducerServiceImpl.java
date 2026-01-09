@@ -1,6 +1,7 @@
 package com.restaurant.reservationservice.service.impl;
 
-import com.restaurant.kafkamodule.service.IBaseKafkaProducer;
+import com.restaurant.sqsmodule.config.SqsQueueConfig;
+import com.restaurant.sqsmodule.service.IBaseSqsProducer;
 import com.restaurant.reservationservice.dto.ReservationDto;
 import com.restaurant.reservationservice.event.*;
 import com.restaurant.reservationservice.service.ReservationProducerService;
@@ -20,19 +21,10 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReservationProducerServiceImpl implements ReservationProducerService {
 
-    private final IBaseKafkaProducer kafkaProducerService;
+    private final IBaseSqsProducer sqsProducerService;
 
     @Value("${spring.application.name:reservation-service}")
     private String serviceName;
-
-    @Value("${kafka.topic.customer-seated:reservation.customer-seated}")
-    private String customerSeatedTopic;
-
-    @Value("${kafka.topic.reservation-cancelled:reservation.cancelled}")
-    private String reservationCancelledTopic;
-
-    @Value("${kafka.topic.reservation-completed:reservation.completed}")
-    private String reservationCompletedTopic;
 
     @Override
     public void publishCustomerSeatedEvent(ReservationDto reservation) {
@@ -51,7 +43,7 @@ public class ReservationProducerServiceImpl implements ReservationProducerServic
                     .preOrderId(reservation.getPreOrderId())
                     .build();
 
-            kafkaProducerService.sendEvent(customerSeatedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.CUSTOMER_SEATED_QUEUE, event);
             log.info("Published CUSTOMER_SEATED event for reservation: {}", reservation.getId());
         } catch (Exception e) {
             log.error("Failed to publish CUSTOMER_SEATED event for reservation: {}", reservation.getId(), e);
@@ -73,7 +65,7 @@ public class ReservationProducerServiceImpl implements ReservationProducerServic
                     .reason(reason)
                     .build();
 
-            kafkaProducerService.sendEvent(reservationCancelledTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.RESERVATION_CANCELLED_QUEUE, event);
             log.info("Published RESERVATION_CANCELLED event for reservation: {}", reservation.getId());
         } catch (Exception e) {
             log.error("Failed to publish RESERVATION_CANCELLED event for reservation: {}", reservation.getId(), e);
@@ -94,7 +86,7 @@ public class ReservationProducerServiceImpl implements ReservationProducerServic
                     .userId(reservation.getUserId())
                     .build();
 
-            kafkaProducerService.sendEvent(reservationCompletedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.RESERVATION_COMPLETED_QUEUE, event);
             log.info("Published RESERVATION_COMPLETED event for reservation: {}", reservation.getId());
         } catch (Exception e) {
             log.error("Failed to publish RESERVATION_COMPLETED event for reservation: {}", reservation.getId(), e);

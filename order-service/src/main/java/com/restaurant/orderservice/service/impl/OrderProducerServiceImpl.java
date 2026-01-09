@@ -1,7 +1,8 @@
 // OrderProducerServiceImpl.java
 package com.restaurant.orderservice.service.impl;
 
-import com.restaurant.kafkamodule.service.IBaseKafkaProducer;
+import com.restaurant.sqsmodule.config.SqsQueueConfig;
+import com.restaurant.sqsmodule.service.IBaseSqsProducer;
 import com.restaurant.orderservice.dto.OrderDto;
 import com.restaurant.orderservice.enums.OrderStatus;
 import com.restaurant.orderservice.event.*;
@@ -19,28 +20,12 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderProducerServiceImpl implements OrderProducerService {
 
-    private final IBaseKafkaProducer kafkaProducerService;
+    private final IBaseSqsProducer sqsProducerService;
 
     @Value("${spring.application.name:order-service}")
     private String serviceName;
 
-    @Value("${kafka.topic.order-created:order-created}")
-    private String orderCreatedTopic;
-
-    @Value("${kafka.topic.order-status-changed:order-status-changed}")
-    private String orderStatusChangedTopic;
-
-    @Value("${kafka.topic.order-cancelled:order-cancelled}")
-    private String orderCancelledTopic;
-
-    @Value("${kafka.topic.delivery-assigned:delivery-assigned}")
-    private String deliveryAssignedTopic;
-
-    @Value("${kafka.topic.delivery-completed:delivery-completed}")
-    private String deliveryCompletedTopic;
-
-    @Value("${kafka.topic.pre-order-created:order.pre-order-created}")
-    private String preOrderCreatedTopic;
+    // Topics/Queues are now used from SqsQueueConfig
 
     @Override
     public void publishOrderCreatedEvent(OrderDto order) {
@@ -58,7 +43,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .status(order.getStatus().name())
                     .build();
 
-            kafkaProducerService.sendEvent(orderCreatedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.ORDER_CREATED_QUEUE, event);
             log.info("Published ORDER_CREATED event for order: {}", order.getId());
         } catch (Exception e) {
             log.error("Failed to publish ORDER_CREATED event for order: {}", order.getId(), e);
@@ -79,7 +64,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .newStatus(newStatus.name())
                     .build();
 
-            kafkaProducerService.sendEvent(orderStatusChangedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.ORDER_UPDATED_QUEUE, event);
             log.info("Published ORDER_STATUS_CHANGED event for order: {} ({} -> {})",
                     order.getId(), oldStatus, newStatus);
         } catch (Exception e) {
@@ -101,7 +86,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .reason(reason)
                     .build();
 
-            kafkaProducerService.sendEvent(orderCancelledTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.ORDER_CANCELLED_QUEUE, event);
             log.info("Published ORDER_CANCELLED event for order: {}", order.getId());
         } catch (Exception e) {
             log.error("Failed to publish ORDER_CANCELLED event for order: {}", order.getId(), e);
@@ -123,7 +108,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .customerPhone(order.getGuestPhone())
                     .build();
 
-            kafkaProducerService.sendEvent(deliveryAssignedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.DELIVERY_ASSIGNED_QUEUE, event);
             log.info("Published DELIVERY_ASSIGNED event for order: {}", order.getId());
         } catch (Exception e) {
             log.error("Failed to publish DELIVERY_ASSIGNED event for order: {}", order.getId(), e);
@@ -144,7 +129,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .deliveredAt(order.getActualDeliveryTime())
                     .build();
 
-            kafkaProducerService.sendEvent(deliveryCompletedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.DELIVERY_COMPLETED_QUEUE, event);
             log.info("Published DELIVERY_COMPLETED event for order: {}", order.getId());
         } catch (Exception e) {
             log.error("Failed to publish DELIVERY_COMPLETED event for order: {}", order.getId(), e);
@@ -166,7 +151,7 @@ public class OrderProducerServiceImpl implements OrderProducerService {
                     .totalAmount(order.getTotalAmount())
                     .build();
 
-            kafkaProducerService.sendEvent(preOrderCreatedTopic, event);
+            sqsProducerService.sendEvent(SqsQueueConfig.PRE_ORDER_CREATED_QUEUE, event);
             log.info("Published PRE_ORDER_CREATED event for order: {} linked to reservation: {}",
                     order.getId(), order.getReservationId());
         } catch (Exception e) {

@@ -1,13 +1,13 @@
-package com.restaurant.authservice.event;
+package com.restaurant.sqsmodule.event;
 
-import com.restaurant.kafkamodule.event.BaseEvent;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import com.restaurant.kafkamodule.event.BaseEvent;
 
 @Data
 @SuperBuilder
-@AllArgsConstructor
 @NoArgsConstructor
+@AllArgsConstructor
 @EqualsAndHashCode(callSuper = true)
 public class RegisterEvent extends BaseEvent {
 

@@ -24,10 +24,14 @@ public class AuthEntity implements IBaseEntity<Long> {
 
     private String password;
 
+    @Column(name = "cognito_sub", unique = true)
+    private String cognitoSub;
+
     @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
     private UserRole role = UserRole.USER;

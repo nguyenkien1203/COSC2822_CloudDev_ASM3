@@ -1,13 +1,19 @@
 package com.restaurant.authservice.service;
 
 import com.restaurant.authservice.config.CognitoProperties;
+import com.restaurant.authservice.dto.AuthDto;
+import com.restaurant.authservice.dto.AuthFilter;
 import com.restaurant.authservice.dto.CognitoAuthResponse;
 import com.restaurant.authservice.dto.NewPasswordRequest;
 import com.restaurant.authservice.dto.RegisterDto;
+import com.restaurant.authservice.entity.AuthEntity;
 import com.restaurant.authservice.event.LoginEvent;
-import com.restaurant.authservice.event.RegisterEvent;
+import com.restaurant.sqsmodule.event.RegisterEvent;
 import com.restaurant.authservice.event.TokenRefreshEvent;
 import com.restaurant.authservice.event.UserLogoutEvent;
+import com.restaurant.authservice.factory.AuthFactory;
+import com.restaurant.factorymodule.exception.DataFactoryException;
+import com.restaurant.redismodule.exception.CacheException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -21,10 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.*;
 
-/**
- * Service for AWS Cognito authentication operations
- * Handles login, registration, token refresh, and password management
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -33,17 +35,11 @@ public class CognitoAuthService {
     private final CognitoIdentityProviderClient cognitoClient;
     private final CognitoProperties cognitoProperties;
     private final AuthProducerService kafkaProducerService;
+    private final AuthFactory authFactory;
 
     @Value("${spring.application.name:auth-service}")
     private String serviceName;
 
-    /**
-     * Authenticate user with Cognito using USER_PASSWORD_AUTH flow
-     *
-     * @param email    User's email
-     * @param password User's password
-     * @return CognitoAuthResponse with tokens or challenge info
-     */
     public CognitoAuthResponse login(String email, String password) {
         log.info("Cognito login attempt for email: {}", email);
 
@@ -52,7 +48,6 @@ public class CognitoAuthService {
             authParams.put("USERNAME", email);
             authParams.put("PASSWORD", password);
 
-            // Add secret hash if client secret is configured
             if (cognitoProperties.getClientSecret() != null && !cognitoProperties.getClientSecret().isEmpty()) {
                 authParams.put("SECRET_HASH", calculateSecretHash(email));
             }
@@ -65,16 +60,12 @@ public class CognitoAuthService {
 
             InitiateAuthResponse authResponse = cognitoClient.initiateAuth(authRequest);
 
-            // Check if there's a challenge (e.g., NEW_PASSWORD_REQUIRED)
             if (authResponse.challengeName() != null) {
                 log.info("Cognito challenge received: {}", authResponse.challengeName());
                 return handleChallenge(authResponse, email);
             }
 
-            // Successful authentication
             AuthenticationResultType result = authResponse.authenticationResult();
-
-            // Publish login event to Kafka
             publishLoginEvent(email);
 
             return CognitoAuthResponse.builder()
@@ -101,9 +92,6 @@ public class CognitoAuthService {
         }
     }
 
-    /**
-     * Handle Cognito challenges (e.g., NEW_PASSWORD_REQUIRED)
-     */
     private CognitoAuthResponse handleChallenge(InitiateAuthResponse authResponse, String email) {
         ChallengeNameType challengeName = authResponse.challengeName();
 
@@ -116,13 +104,9 @@ public class CognitoAuthService {
                     .build();
         }
 
-        // Handle other challenges as needed
         throw new RuntimeException("Unsupported challenge: " + challengeName);
     }
 
-    /**
-     * Respond to NEW_PASSWORD_REQUIRED challenge
-     */
     public CognitoAuthResponse respondToNewPasswordChallenge(NewPasswordRequest request) {
         log.info("Responding to NEW_PASSWORD_REQUIRED challenge for: {}", request.getEmail());
 
@@ -145,7 +129,6 @@ public class CognitoAuthService {
             RespondToAuthChallengeResponse response = cognitoClient.respondToAuthChallenge(challengeRequest);
             AuthenticationResultType result = response.authenticationResult();
 
-            // Publish login event
             publishLoginEvent(request.getEmail());
 
             return CognitoAuthResponse.builder()
@@ -163,9 +146,6 @@ public class CognitoAuthService {
         }
     }
 
-    /**
-     * Register a new user in Cognito
-     */
     public CognitoAuthResponse register(RegisterDto registerDto) {
         log.info("Registering new user in Cognito: {}", registerDto.getEmail());
 
@@ -175,12 +155,7 @@ public class CognitoAuthService {
                     .name("email")
                     .value(registerDto.getEmail())
                     .build());
-            userAttributes.add(AttributeType.builder()
-                    .name("email_verified")
-                    .value("true")
-                    .build());
 
-            // Add optional attributes
             if (registerDto.getFullName() != null) {
                 userAttributes.add(AttributeType.builder()
                         .name("name")
@@ -200,7 +175,6 @@ public class CognitoAuthService {
                     .password(registerDto.getPassword())
                     .userAttributes(userAttributes);
 
-            // Add secret hash if configured
             if (cognitoProperties.getClientSecret() != null && !cognitoProperties.getClientSecret().isEmpty()) {
                 signUpBuilder.secretHash(calculateSecretHash(registerDto.getEmail()));
             }
@@ -210,16 +184,21 @@ public class CognitoAuthService {
 
             log.info("User registered in Cognito with sub: {}", userSub);
 
-            // Auto-confirm user if needed (for development)
-            if (!signUpResponse.userConfirmed()) {
-                confirmUserAdmin(registerDto.getEmail());
-            }
+            boolean userConfirmed = signUpResponse.userConfirmed();
 
-            // Publish registration event to Kafka
+            createAuthEntity(userSub, registerDto.getEmail());
             publishRegisterEvent(userSub, registerDto);
 
-            // Auto-login after registration
-            return login(registerDto.getEmail(), registerDto.getPassword());
+            if (userConfirmed) {
+                return login(registerDto.getEmail(), registerDto.getPassword());
+            } else {
+                return CognitoAuthResponse.builder()
+                        .email(registerDto.getEmail())
+                        .sub(userSub)
+                        .requiresConfirmation(true)
+                        .message("Registration successful. Please check your email to confirm your account before logging in.")
+                        .build();
+            }
 
         } catch (UsernameExistsException e) {
             log.warn("User already exists: {}", registerDto.getEmail());
@@ -233,27 +212,59 @@ public class CognitoAuthService {
         }
     }
 
-    /**
-     * Admin confirm user (bypasses email verification)
-     */
-    private void confirmUserAdmin(String email) {
-        try {
-            AdminConfirmSignUpRequest confirmRequest = AdminConfirmSignUpRequest.builder()
-                    .userPoolId(cognitoProperties.getUserPoolId())
-                    .username(email)
-                    .build();
+    public void confirmSignUp(String email, String confirmationCode) {
+        log.info("Confirming sign up for email: {}", email);
 
-            cognitoClient.adminConfirmSignUp(confirmRequest);
-            log.info("User confirmed via admin: {}", email);
+        try {
+            ConfirmSignUpRequest.Builder confirmBuilder = ConfirmSignUpRequest.builder()
+                    .clientId(cognitoProperties.getClientId())
+                    .username(email)
+                    .confirmationCode(confirmationCode);
+
+            if (cognitoProperties.getClientSecret() != null && !cognitoProperties.getClientSecret().isEmpty()) {
+                confirmBuilder.secretHash(calculateSecretHash(email));
+            }
+
+            cognitoClient.confirmSignUp(confirmBuilder.build());
+            log.info("User confirmed successfully: {}", email);
+
+        } catch (CodeMismatchException e) {
+            throw new RuntimeException("Invalid confirmation code. Please try again.");
+        } catch (ExpiredCodeException e) {
+            throw new RuntimeException("Confirmation code has expired. Please request a new one.");
+        } catch (UserNotFoundException e) {
+            throw new RuntimeException("User not found. Please register first.");
         } catch (Exception e) {
-            log.warn("Could not auto-confirm user: {}", e.getMessage());
-            // Don't throw - user might need to confirm via email
+            log.error("Error confirming user: {}", email, e);
+            throw new RuntimeException("Failed to confirm email: " + e.getMessage());
         }
     }
 
-    /**
-     * Refresh access token using refresh token
-     */
+    public void resendConfirmationCode(String email) {
+        log.info("Resending confirmation code to email: {}", email);
+
+        try {
+            ResendConfirmationCodeRequest.Builder resendBuilder = ResendConfirmationCodeRequest.builder()
+                    .clientId(cognitoProperties.getClientId())
+                    .username(email);
+
+            if (cognitoProperties.getClientSecret() != null && !cognitoProperties.getClientSecret().isEmpty()) {
+                resendBuilder.secretHash(calculateSecretHash(email));
+            }
+
+            cognitoClient.resendConfirmationCode(resendBuilder.build());
+            log.info("Confirmation code resent successfully to: {}", email);
+
+        } catch (UserNotFoundException e) {
+            throw new RuntimeException("User not found. Please register first.");
+        } catch (LimitExceededException e) {
+            throw new RuntimeException("Too many attempts. Please wait before requesting a new code.");
+        } catch (Exception e) {
+            log.error("Error resending confirmation code: {}", email, e);
+            throw new RuntimeException("Failed to resend confirmation code: " + e.getMessage());
+        }
+    }
+
     public CognitoAuthResponse refreshToken(String refreshToken, String email) {
         log.info("Refreshing token for user");
 
@@ -274,13 +285,11 @@ public class CognitoAuthService {
             InitiateAuthResponse authResponse = cognitoClient.initiateAuth(authRequest);
             AuthenticationResultType result = authResponse.authenticationResult();
 
-            // Publish token refresh event
             publishTokenRefreshEvent(email);
 
             return CognitoAuthResponse.builder()
                     .accessToken(result.accessToken())
                     .idToken(result.idToken())
-                    // Refresh token is not returned on refresh, keep the original
                     .refreshToken(refreshToken)
                     .expiresIn(result.expiresIn())
                     .tokenType(result.tokenType())
@@ -288,7 +297,6 @@ public class CognitoAuthService {
                     .build();
 
         } catch (NotAuthorizedException e) {
-            log.warn("Refresh token invalid or expired");
             throw new RuntimeException("Refresh token invalid or expired");
         } catch (Exception e) {
             log.error("Token refresh error", e);
@@ -296,9 +304,6 @@ public class CognitoAuthService {
         }
     }
 
-    /**
-     * Sign out user from all devices (global sign out)
-     */
     public void logout(String accessToken) {
         try {
             GlobalSignOutRequest signOutRequest = GlobalSignOutRequest.builder()
@@ -310,13 +315,9 @@ public class CognitoAuthService {
 
         } catch (Exception e) {
             log.warn("Global sign out failed: {}", e.getMessage());
-            // Don't throw - we'll still clear cookies
         }
     }
 
-    /**
-     * Calculate secret hash for Cognito client with secret
-     */
     private String calculateSecretHash(String username) {
         try {
             String message = username + cognitoProperties.getClientId();
@@ -332,7 +333,26 @@ public class CognitoAuthService {
         }
     }
 
-    // ============== Kafka Event Publishing ==============
+    private void createAuthEntity(String cognitoSub, String email) {
+        try {
+            AuthDto authDto = AuthDto.builder()
+                    .cognitoSub(cognitoSub)
+                    .email(email)
+                    .password(null)
+                    .isActive(true)
+                    .role(AuthEntity.UserRole.USER)
+                    .build();
+            authFactory.create(authDto);
+            log.info("Created AuthEntity in database with cognitoSub: {}", cognitoSub);
+        } catch (Exception e) {
+            log.error("Failed to create AuthEntity in database for sub: {}", cognitoSub, e);
+        }
+    }
+
+    public AuthDto getAuthByEmail(String email) throws DataFactoryException, CacheException {
+        AuthFilter filter = AuthFilter.builder().email(email).build();
+        return authFactory.getModel(filter);
+    }
 
     private void publishLoginEvent(String email) {
         try {
@@ -359,11 +379,11 @@ public class CognitoAuthService {
                             .timestamp(LocalDateTime.now())
                             .source(serviceName)
                             .version("1.0")
+                            .cognitoSub(userSub)
                             .email(registerDto.getEmail())
                             .fullName(registerDto.getFullName())
                             .phone(registerDto.getPhone())
                             .address(registerDto.getAddress())
-                            .cognitoSub(userSub)
                             .build());
         } catch (Exception e) {
             log.warn("Failed to publish register event", e);

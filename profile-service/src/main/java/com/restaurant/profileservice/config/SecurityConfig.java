@@ -22,25 +22,29 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-        private final BaseSecurityFilter baseSecurityFilter;
+    private final BaseSecurityFilter baseSecurityFilter;
 
-        @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-                http
-                                // Disable CSRF since we're using stateless authentication
-                                .csrf(AbstractHttpConfigurer::disable)
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+                // Enable CORS
+                .cors(org.springframework.security.config.Customizer.withDefaults())
 
-                                // Stateless session management
-                                .sessionManagement(session -> session
-                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // Disable CSRF since we're using stateless authentication
+                .csrf(AbstractHttpConfigurer::disable)
 
-                                // Allow all requests - BaseSecurityFilter handles authorization
-                                .authorizeHttpRequests(auth -> auth
-                                                .anyRequest().permitAll())
+                // Stateless session management
+                .sessionManagement(session -> session
+                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                                // Add base security filter from security-module
-                                .addFilterBefore(baseSecurityFilter, UsernamePasswordAuthenticationFilter.class);
+                // Permit actuator endpoints for health checks (ALB target group)
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**", "/health").permitAll()
+                        .anyRequest().permitAll())
 
-                return http.build();
-        }
+                // Add base security filter from security-module
+                .addFilterBefore(baseSecurityFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
 }

@@ -10,7 +10,8 @@ import org.springframework.context.annotation.ComponentScans;
 		"com.restaurant.redismodule",
 		"com.restaurant.kafkamodule",
 		"com.restaurant.factorymodule",
-		"com.restaurant.securitymodule" })
+		"com.restaurant.securitymodule",
+		"com.restaurant.sqsmodule" })
 public class MenuServiceApplication {
 
 	public static void main(String[] args) {

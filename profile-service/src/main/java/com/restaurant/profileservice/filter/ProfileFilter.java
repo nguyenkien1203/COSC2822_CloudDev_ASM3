@@ -7,6 +7,6 @@ import lombok.Data;
 @Data
 @Builder
 public class ProfileFilter implements IFilter {
-    private Long userId;
+    private String userId;  // Cognito sub (UUID string)
     private String email;
 }

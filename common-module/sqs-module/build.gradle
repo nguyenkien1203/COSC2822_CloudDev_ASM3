@@ -1,8 +1,8 @@
 description = 'Kafka Module - Kafka messaging and event streaming'
 
 dependencies {
-	// Spring Kafka
-	api 'org.springframework.kafka:spring-kafka'
+	// Spring Cloud AWS SQS
+	api 'io.awspring.cloud:spring-cloud-aws-starter-sqs'
 	api 'com.fasterxml.jackson.core:jackson-databind'
 	
 	// Internal modules

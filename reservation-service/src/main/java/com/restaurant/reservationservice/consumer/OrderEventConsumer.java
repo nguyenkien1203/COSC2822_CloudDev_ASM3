@@ -1,13 +1,11 @@
 package com.restaurant.reservationservice.consumer;
 
-import com.restaurant.kafkamodule.config.KafkaTopicConfig;
+import com.restaurant.sqsmodule.config.SqsQueueConfig;
 import com.restaurant.reservationservice.event.PreOrderCreatedEvent;
 import com.restaurant.reservationservice.service.ReservationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.messaging.handler.annotation.Header;
+import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
@@ -25,17 +23,13 @@ public class OrderEventConsumer {
     /**
      * Handle pre-order created event - links the pre-order to the reservation.
      */
-    @KafkaListener(topics = KafkaTopicConfig.PRE_ORDER_CREATED_TOPIC, groupId = "${spring.kafka.consumer.group-id:reservation-service-group}", containerFactory = "kafkaListenerContainerFactory")
-    public void handlePreOrderCreated(
-            @Payload PreOrderCreatedEvent event,
-            @Header(KafkaHeaders.RECEIVED_TOPIC) String topic,
-            @Header(value = KafkaHeaders.RECEIVED_KEY, required = false) String key,
-            @Header(KafkaHeaders.OFFSET) long offset) {
+    @SqsListener(queueNames = SqsQueueConfig.PRE_ORDER_CREATED_QUEUE)
+    public void handlePreOrderCreated(@Payload PreOrderCreatedEvent event) {
 
         try {
             log.info(
-                    "Received PRE_ORDER_CREATED event - eventId: {}, orderId: {}, reservationId: {}, topic: {}, offset: {}",
-                    event.getEventId(), event.getOrderId(), event.getReservationId(), topic, offset);
+                    "Received PRE_ORDER_CREATED event - eventId: {}, orderId: {}, reservationId: {}",
+                    event.getEventId(), event.getOrderId(), event.getReservationId());
 
             if (event.getReservationId() == null) {
                 log.warn("Pre-order {} has no reservation ID, skipping link", event.getOrderId());

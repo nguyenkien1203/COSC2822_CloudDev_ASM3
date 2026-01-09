@@ -6,7 +6,7 @@ dependencies {
 	api project(':common-module:utils')
 	api project(':common-module:redis-module')
 	api project(':common-module:factory-module')
-	api project(':common-module:kafka-module')
+	api project(':common-module:sqs-module')
 	api project(':common-module:security-module')
 
 }

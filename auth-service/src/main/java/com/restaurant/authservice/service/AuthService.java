@@ -5,7 +5,7 @@ import com.restaurant.authservice.dto.AuthFilter;
 import com.restaurant.authservice.dto.RegisterDto;
 import com.restaurant.authservice.entity.AuthEntity;
 import com.restaurant.authservice.event.LoginEvent;
-import com.restaurant.authservice.event.RegisterEvent;
+import com.restaurant.sqsmodule.event.RegisterEvent;
 import com.restaurant.authservice.event.TokenRefreshEvent;
 import com.restaurant.authservice.event.UserLogoutEvent;
 import com.restaurant.authservice.factory.AuthFactory;

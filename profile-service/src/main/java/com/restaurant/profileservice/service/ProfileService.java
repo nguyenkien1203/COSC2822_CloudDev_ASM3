@@ -13,7 +13,7 @@ public interface ProfileService {
     /**
      * Create a new profile for a user
      */
-    ProfileDto createProfile(Long userId, CreateProfileRequest request) throws DataFactoryException;
+    ProfileDto createProfile(String userId, CreateProfileRequest request) throws DataFactoryException;
 
     /**
      * Get profile by profile ID (used by admin)
@@ -21,9 +21,9 @@ public interface ProfileService {
     ProfileDto getProfileById(Long id) throws CacheException, DataFactoryException;
 
     /**
-     * Get profile by user ID
+     * Get profile by user ID (Cognito sub)
      */
-    ProfileDto getProfileByUserId(Long userId) throws CacheException, DataFactoryException;
+    ProfileDto getProfileByUserId(String userId) throws CacheException, DataFactoryException;
 
     /**
      * Update profile by profile ID
@@ -42,6 +42,7 @@ public interface ProfileService {
 
     /**
      * Auto-create profile from user registration event
+     * @param userId Cognito sub (UUID string)
      */
-    void createProfileFromUserRegistration(Long userId, String email, String fullName, String phone, String address) throws DataFactoryException;
+    void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address) throws DataFactoryException;
 }

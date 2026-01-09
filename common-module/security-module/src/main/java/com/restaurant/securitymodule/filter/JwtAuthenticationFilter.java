@@ -36,10 +36,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final CognitoJwtValidator cognitoJwtValidator;
     private final SecurityProperties securityProperties;
+    private final org.springframework.util.AntPathMatcher pathMatcher = new org.springframework.util.AntPathMatcher();
 
     // Request attribute to indicate this filter was already invoked by
     // BaseSecurityFilter
     public static final String ALREADY_FILTERED_ATTRIBUTE = "JWT_FILTER_ALREADY_APPLIED";
+
+    /**
+     * Skip this filter entirely for actuator endpoints (health checks)
+     * This ensures ALB health checks always pass regardless of security config
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        return pathMatcher.match("/actuator/**", path);
+    }
 
     @Override
     protected void doFilterInternal(
@@ -88,9 +99,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     .map(SimpleGrantedAuthority::new)
                     .collect(Collectors.toList());
 
-            // Create principal
+            // Create principal with Cognito sub as userId
             UserPrincipal principal = new UserPrincipal(
-                    null, // Cognito doesn't use numeric IDs
+                    sub, // Use Cognito sub as userId
                     email,
                     authorities);
 

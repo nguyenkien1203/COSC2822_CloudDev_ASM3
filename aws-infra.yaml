@@ -1,0 +1,506 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Restaurant Microservices Infrastructure: VPC, RDS, Redis, SQS, ALB, ECS Cluster'
+
+Parameters:
+  DBPassword:
+    Type: String
+    Description: Master password for RDS
+    NoEcho: true
+  AllowedCidr:
+    Type: String
+    Default: '0.0.0.0/0'
+    Description: CIDR block allowed to access the ALB
+
+Resources:
+  # -------------------------------------------------------------------------
+  # Networking (VPC, Subnets, IGW, NAT)
+  # -------------------------------------------------------------------------
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.0.0.0/16
+      EnableDnsHostnames: true
+      EnableDnsSupport: true
+      Tags:
+        - Key: Name
+          Value: restaurant-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: restaurant-igw
+
+  InternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.0.1.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: restaurant-public-subnet-1
+
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: 10.0.2.0/24
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: restaurant-public-subnet-2
+
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 0, !GetAZs '' ]
+      CidrBlock: 10.0.10.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: restaurant-private-subnet-1
+
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select [ 1, !GetAZs '' ]
+      CidrBlock: 10.0.11.0/24
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: restaurant-private-subnet-2
+
+  # NAT Gateway (Single NAT for cost savings in Learner Lab)
+  NatGatewayEIP:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+
+  NatGateway:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt NatGatewayEIP.AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: restaurant-nat-gw
+
+  # Route Tables
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: restaurant-public-rt
+
+  DefaultPublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  PublicSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+
+  PublicSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: restaurant-private-rt
+
+  DefaultPrivateRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway
+
+  PrivateSubnet1Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet1
+
+  PrivateSubnet2Association:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnet2
+
+  # -------------------------------------------------------------------------
+  # Security Groups
+  # -------------------------------------------------------------------------
+  ALBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Enable HTTP/HTTPS access to ALB
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref AllowedCidr
+  
+  ECSHostSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow access from ALB to ECS instances
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 0
+          ToPort: 65535
+          SourceSecurityGroupId: !Ref ALBSecurityGroup
+
+  DBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow database access from ECS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref ECSHostSecurityGroup
+
+  CacheSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow Redis access from ECS
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 6379
+          ToPort: 6379
+          SourceSecurityGroupId: !Ref ECSHostSecurityGroup
+
+  # -------------------------------------------------------------------------
+  # RDS PostgreSQL
+  # -------------------------------------------------------------------------
+  PostgresDB:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: restaurant_db
+      AllocatedStorage: 20
+      DBInstanceClass: db.t3.micro
+      Engine: postgres
+      EngineVersion: '16.6'
+      MasterUsername: postgres
+      MasterUserPassword: !Ref DBPassword
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      PubliclyAccessible: false
+
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnets for RDS
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  # -------------------------------------------------------------------------
+  # ElastiCache Redis
+  # -------------------------------------------------------------------------
+  RedisCluster:
+    Type: AWS::ElastiCache::CacheCluster
+    Properties:
+      CacheNodeType: cache.t3.micro
+      Engine: redis
+      NumCacheNodes: 1
+      VpcSecurityGroupIds:
+        - !Ref CacheSecurityGroup
+      CacheSubnetGroupName: !Ref CacheSubnetGroup
+
+  CacheSubnetGroup:
+    Type: AWS::ElastiCache::SubnetGroup
+    Properties:
+      Description: Subnets for Redis
+      SubnetIds:
+        - !Ref PrivateSubnet1
+        - !Ref PrivateSubnet2
+
+  # -------------------------------------------------------------------------
+  # SQS Queues
+  # -------------------------------------------------------------------------
+  UserRegisteredQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: user-registered
+  
+  UserLoginQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: user-login
+
+  UserLogoutQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: user-logout
+
+  TokenRefreshedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: token-refreshed
+
+  ProfileUpdatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: profile-updated
+
+  ProfileDeletedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: profile-deleted
+
+  OrderCreatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-created
+
+  OrderUpdatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-updated
+
+  OrderCancelledQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-cancelled
+
+  DeliveryAssignedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: delivery-assigned
+
+  DeliveryCompletedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: delivery-completed
+
+  ReservationCreatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: reservation-created
+
+  ReservationUpdatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: reservation-updated
+
+  MenuUpdatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: menu-updated
+
+  TableUpdatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: table-updated
+
+  CustomerSeatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: reservation-customer-seated
+
+  ReservationCancelledQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: reservation-cancelled
+
+  ReservationCompletedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: reservation-completed
+
+  PreOrderCreatedQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: order-pre-order-created
+
+  # -------------------------------------------------------------------------
+  # Cognito User Pool
+  # -------------------------------------------------------------------------
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    Properties:
+      UserPoolName: restaurant-user-pool
+      AutoVerifiedAttributes:
+        - email
+      Schema:
+        - Name: email
+          AttributeDataType: String
+          Mutable: true
+          Required: true
+      Policies:
+        PasswordPolicy:
+          MinimumLength: 8
+          RequireLowercase: true
+          RequireNumbers: true
+          RequireSymbols: true
+          RequireUppercase: true
+
+  UserPoolClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      ClientName: restaurant-app-client
+      UserPoolId: !Ref UserPool
+      GenerateSecret: false
+      ExplicitAuthFlows:
+        - ALLOW_USER_PASSWORD_AUTH
+        - ALLOW_REFRESH_TOKEN_AUTH
+        - ALLOW_USER_SRP_AUTH
+
+  UserGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: USER
+      UserPoolId: !Ref UserPool
+      Precedence: 5
+
+  AdminGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: ADMIN
+      UserPoolId: !Ref UserPool
+      Precedence: 1
+
+  ManagerGroup:
+    Type: AWS::Cognito::UserPoolGroup
+    Properties:
+      GroupName: MANAGER
+      UserPoolId: !Ref UserPool
+      Precedence: 2
+
+  # -------------------------------------------------------------------------
+  # ECS Cluster
+  # -------------------------------------------------------------------------
+  ECSCluster:
+    Type: AWS::ECS::Cluster
+    Properties:
+      ClusterName: restaurant-cluster
+
+  # -------------------------------------------------------------------------
+  # ALB
+  # -------------------------------------------------------------------------
+  LoadBalancer:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties:
+      Name: restaurant-alb
+      Scheme: internet-facing
+      Subnets:
+        - !Ref PublicSubnet1
+        - !Ref PublicSubnet2
+      SecurityGroups:
+        - !Ref ALBSecurityGroup
+      Type: application
+
+  HTTPListener:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties:
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: fixed-response
+          FixedResponseConfig:
+            ContentType: "text/plain"
+            MessageBody: "404 Not Found"
+            StatusCode: "404"
+
+Outputs:
+  ClusterName:
+    Value: !Ref ECSCluster
+    Export:
+      Name: !Sub "${AWS::StackName}-ClusterName"
+  LoadBalancerArn:
+    Value: !Ref LoadBalancer
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerArn"
+  LoadBalancerDNS:
+    Value: !GetAtt LoadBalancer.DNSName
+    Export:
+      Name: !Sub "${AWS::StackName}-LoadBalancerDNS"
+  HTTPListenerArn:
+    Value: !Ref HTTPListener
+    Export:
+      Name: !Sub "${AWS::StackName}-HTTPListenerArn"
+  VpcId:
+    Value: !Ref VPC
+    Export:
+      Name: !Sub "${AWS::StackName}-VpcId"
+  ECSHostSecurityGroup:
+    Value: !Ref ECSHostSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-ECSHostSecurityGroup"
+  RDSEndpoint:
+    Value: !GetAtt PostgresDB.Endpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RDSEndpoint"
+  RedisEndpoint:
+    Value: !GetAtt RedisCluster.RedisEndpoint.Address
+    Export:
+      Name: !Sub "${AWS::StackName}-RedisEndpoint"
+  PrivateSubnet1:
+    Value: !Ref PrivateSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet1"
+  PrivateSubnet2:
+    Value: !Ref PrivateSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-PrivateSubnet2"
+  UserPoolId:
+    Value: !Ref UserPool
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolId"
+  UserPoolClientId:
+    Value: !Ref UserPoolClient
+    Export:
+      Name: !Sub "${AWS::StackName}-UserPoolClientId"
+  PublicSubnet1:
+    Value: !Ref PublicSubnet1
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet1"
+  PublicSubnet2:
+    Value: !Ref PublicSubnet2
+    Export:
+      Name: !Sub "${AWS::StackName}-PublicSubnet2"
+  InternetGateway:
+    Value: !Ref InternetGateway
+    Export:
+      Name: !Sub "${AWS::StackName}-InternetGateway"
+  DBSecurityGroup:
+    Value: !Ref DBSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-DBSecurityGroup"
+  CacheSecurityGroup:
+    Value: !Ref CacheSecurityGroup
+    Export:
+      Name: !Sub "${AWS::StackName}-CacheSecurityGroup"
