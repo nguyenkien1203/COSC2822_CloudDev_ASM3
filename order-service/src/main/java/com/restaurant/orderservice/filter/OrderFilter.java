@@ -18,8 +18,8 @@ import java.time.LocalDateTime;
 public class OrderFilter implements IFilter {
 
     private Long id;
-    private Long userId;
-    private Long driverId;
+    private String userId;
+    private String driverId;
     private Long reservationId;
     private OrderType orderType;
     private OrderStatus status;
@@ -29,4 +29,3 @@ public class OrderFilter implements IFilter {
     private String guestEmail;
     private String guestPhone;
 }
-

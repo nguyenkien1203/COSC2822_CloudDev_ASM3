@@ -21,7 +21,7 @@ public class CustomerSeatedEvent extends BaseEvent {
     private Long reservationId;
     private Long tableId;
     private String tableNumber;
-    private Long userId;
+    private String userId;
     private Integer partySize;
     private Long preOrderId; // Link to existing pre-order if any
 }

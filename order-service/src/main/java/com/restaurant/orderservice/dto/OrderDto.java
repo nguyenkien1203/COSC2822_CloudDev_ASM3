@@ -21,7 +21,7 @@ import java.util.List;
 public class OrderDto implements IBaseModel<Long> {
 
     private Long id;
-    private Long userId;
+    private String userId;
     private String guestEmail;
     private String guestPhone;
     private String guestName;
@@ -32,7 +32,7 @@ public class OrderDto implements IBaseModel<Long> {
     private BigDecimal totalAmount;
     private String deliveryAddress;
     private Long reservationId;
-    private Long driverId;
+    private String driverId;
     private String notes;
     private LocalDateTime estimatedReadyTime;
     private LocalDateTime actualDeliveryTime;
@@ -40,4 +40,3 @@ public class OrderDto implements IBaseModel<Long> {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }
-

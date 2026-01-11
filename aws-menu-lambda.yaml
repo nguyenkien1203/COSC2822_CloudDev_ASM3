@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Menu Service Lambda + DynamoDB Resources
+
+Parameters:
+  LabRoleArn:
+    Type: String
+    Default: arn:aws:iam::616967801866:role/LabRole
+    Description: ARN of the LabRole to use for Lambda execution
+
+Resources:
+  # -------------------------------------------------------------------------
+  # DynamoDB Table
+  # -------------------------------------------------------------------------
+  MenuTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: restaurant-menu
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: category
+          AttributeType: S
+        - AttributeName: isAvailable
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: category-availability-index
+          KeySchema:
+            - AttributeName: category
+              KeyType: HASH
+            - AttributeName: isAvailable
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      Tags:
+        - Key: Application
+          Value: restaurant-app
+
+  # -------------------------------------------------------------------------
+  # Lambda Function
+  # -------------------------------------------------------------------------
+  MenuServiceLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: menu-service-lambda
+      Runtime: python3.12
+      Handler: index.handler
+      Role: !Ref LabRoleArn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref MenuTable
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via AWS CLI
+          def handler(event, context):
+              return {'statusCode': 200, 'body': 'Deploy actual code'}
+      Tags:
+        - Key: Application
+          Value: restaurant-app
+
+  # -------------------------------------------------------------------------
+  # Lambda Permission for API Gateway
+  # -------------------------------------------------------------------------
+  LambdaApiGatewayPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref MenuServiceLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+
+Outputs:
+  MenuTableName:
+    Description: DynamoDB Menu Table Name
+    Value: !Ref MenuTable
+    Export:
+      Name: MenuTableName
+
+  MenuLambdaArn:
+    Description: Menu Service Lambda ARN
+    Value: !GetAtt MenuServiceLambda.Arn
+    Export:
+      Name: MenuLambdaArn

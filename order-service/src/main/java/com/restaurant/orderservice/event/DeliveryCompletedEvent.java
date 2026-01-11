@@ -14,8 +14,7 @@ import java.time.LocalDateTime;
 @EqualsAndHashCode(callSuper = true)
 public class DeliveryCompletedEvent extends BaseEvent {
 
-
     private Long orderId;
-    private Long driverId;
+    private String driverId;
     private LocalDateTime deliveredAt;
 }

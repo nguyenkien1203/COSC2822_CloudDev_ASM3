@@ -14,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /**
  * Security configuration for Reservation Service
- * Uses shared security-module for JWT authentication
+ * Uses shared security-module for JWT authentication and CORS
  */
 @Configuration
 @EnableWebSecurity
@@ -27,9 +27,13 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // Enable CORS (uses CorsConfig from security-module)
+                .cors(org.springframework.security.config.Customizer.withDefaults())
+
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/actuator/**", "/health").permitAll()
                         .anyRequest().permitAll())
                 .addFilterBefore(baseSecurityFilter, UsernamePasswordAuthenticationFilter.class);
 

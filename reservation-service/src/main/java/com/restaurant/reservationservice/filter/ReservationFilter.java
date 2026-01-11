@@ -17,7 +17,7 @@ import java.time.LocalDate;
 public class ReservationFilter implements IFilter {
 
     private Long id;
-    private Long userId;
+    private String userId;
     private Long tableId;
     private ReservationStatus status;
     private LocalDate dateFrom;

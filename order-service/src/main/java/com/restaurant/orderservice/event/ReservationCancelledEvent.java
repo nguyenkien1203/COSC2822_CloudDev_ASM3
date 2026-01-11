@@ -19,7 +19,7 @@ import lombok.experimental.SuperBuilder;
 public class ReservationCancelledEvent extends BaseEvent {
 
     private Long reservationId;
-    private Long userId;
+    private String userId;
     private Long preOrderId;
     private String reason;
 }

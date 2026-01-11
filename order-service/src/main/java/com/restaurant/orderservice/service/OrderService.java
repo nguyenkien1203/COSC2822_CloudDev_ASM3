@@ -15,7 +15,7 @@ public interface OrderService {
     /**
      * Create a new order for registered user
      */
-    OrderDto createOrder(CreateOrderRequest request, Long userId) throws DataFactoryException;
+    OrderDto createOrder(CreateOrderRequest request, String userId) throws DataFactoryException;
 
     /**
      * Create a new order for guest (no account)
@@ -30,17 +30,18 @@ public interface OrderService {
     /**
      * Get current user's order history
      */
-    List<OrderDto> getMyOrders(Long userId, OrderFilter filter) throws CacheException, DataFactoryException;
+    List<OrderDto> getMyOrders(String userId, OrderFilter filter) throws CacheException, DataFactoryException;
 
     /**
      * Update order (before confirmed)
      */
-    OrderDto updateOrder(Long id, UpdateOrderRequest request, Long userId) throws CacheException, DataFactoryException;
+    OrderDto updateOrder(Long id, UpdateOrderRequest request, String userId)
+            throws CacheException, DataFactoryException;
 
     /**
      * Cancel order (before preparing)
      */
-    void cancelOrder(Long id, Long userId) throws CacheException, DataFactoryException;
+    void cancelOrder(Long id, String userId) throws CacheException, DataFactoryException;
 
     // ========== ADMIN/STAFF OPERATIONS ==========
 
@@ -69,24 +70,24 @@ public interface OrderService {
     /**
      * Get orders assigned to driver
      */
-    List<OrderDto> getDriverAssignedOrders(Long driverId) throws CacheException, DataFactoryException;
+    List<OrderDto> getDriverAssignedOrders(String driverId) throws CacheException, DataFactoryException;
 
     /**
      * Mark order as out for delivery
      */
-    OrderDto markOutForDelivery(Long orderId, Long driverId) throws CacheException, DataFactoryException;
+    OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException;
 
     /**
      * Mark order as delivered
      */
-    OrderDto markDelivered(Long orderId, Long driverId) throws CacheException, DataFactoryException;
+    OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException;
 
     // ========== PRE-ORDER (LINKED TO RESERVATION) ==========
 
     /**
      * Create pre-order linked to reservation
      */
-    OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, Long userId) throws DataFactoryException;
+    OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, String userId) throws DataFactoryException;
 
     // ========== EVENT HANDLING OPERATIONS ==========
 
@@ -96,7 +97,7 @@ public interface OrderService {
     void confirmPreOrder(Long orderId) throws CacheException, DataFactoryException;
 
     /**
-     * Cancel order by orderId (triggered by ReservationCancelledEvent)
+     * Cancel order by orderId with reason (triggered by ReservationCancelledEvent)
      */
-    void cancelOrder(Long orderId, String reason) throws CacheException, DataFactoryException;
+    void cancelOrderByEvent(Long orderId, String reason) throws CacheException, DataFactoryException;
 }

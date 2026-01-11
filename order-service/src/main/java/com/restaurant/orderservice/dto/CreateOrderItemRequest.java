@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class CreateOrderItemRequest {
 
     @NotNull(message = "Menu item ID is required")
-    private Long menuItemId;
+    private String menuItemId;
 
     @NotNull(message = "Quantity is required")
     @Min(value = 1, message = "Quantity must be at least 1")
@@ -22,4 +22,3 @@ public class CreateOrderItemRequest {
 
     private String notes; // Special instructions for this item
 }
-

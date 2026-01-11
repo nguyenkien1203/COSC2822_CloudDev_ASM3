@@ -68,7 +68,7 @@ public class ReservationEventConsumer {
             if (event.getPreOrderId() != null) {
                 String cancelReason = "Reservation cancelled: " +
                         (event.getReason() != null ? event.getReason() : "No reason provided");
-                orderService.cancelOrder(event.getPreOrderId(), cancelReason);
+                orderService.cancelOrderByEvent(event.getPreOrderId(), cancelReason);
                 log.info("Cancelled pre-order: {} due to reservation cancellation", event.getPreOrderId());
             }
 

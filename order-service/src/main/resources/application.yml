@@ -11,28 +11,31 @@ spring:
         initial-interval: 1000
         multiplier: 1.1
         max-interval: 2000
-
-  # Local fallback datasource (used if Config Server unavailable)
-  datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/order_service_db}
-    username: ${SPRING_DATASOURCE_USERNAME:postgres}
-    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
-    driver-class-name: org.postgresql.Driver
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
-    properties:
-      hibernate:
-        dialect: org.hibernate.dialect.PostgreSQLDialect
-        format_sql: true
+    show-sql: false
 
-server:
-  port: 8084
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
 
-eureka:
-  client:
-    service-url:
-      defaultZone: http://localhost:8761/eureka/
-  instance:
-    prefer-ip-address: true
+restaurant:
+  security:
+    endpoints:
+      - path: /actuator/**
+        type: PUBLIC
+      - path: /health
+        type: PUBLIC
+      - path: /api/orders/guest/**
+        type: PUBLIC
+
+# Lambda Menu Service URL (API Gateway)
+menu-service:
+  url: ${MENU_SERVICE_URL:https://au1gqu8qxf.execute-api.us-east-1.amazonaws.com}

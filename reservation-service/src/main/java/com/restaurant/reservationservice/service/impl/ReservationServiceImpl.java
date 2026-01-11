@@ -38,7 +38,8 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional
-    public ReservationDto createReservation(CreateReservationRequest request, Long userId) throws DataFactoryException {
+    public ReservationDto createReservation(CreateReservationRequest request, String userId)
+            throws DataFactoryException {
         log.info("Creating reservation for user: {} on {}", userId, request.getReservationDate());
 
         validateReservationRequest(request);
@@ -140,7 +141,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional
-    public List<ReservationDto> getMyReservations(Long userId) throws CacheException, DataFactoryException {
+    public List<ReservationDto> getMyReservations(String userId) throws CacheException, DataFactoryException {
         log.info("Getting reservations for user: {}", userId);
         ReservationFilter filter = ReservationFilter.builder().userId(userId).build();
         return reservationFactory.getList(filter);
@@ -148,7 +149,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional
-    public ReservationDto updateReservation(Long id, UpdateReservationRequest request, Long userId)
+    public ReservationDto updateReservation(Long id, UpdateReservationRequest request, String userId)
             throws CacheException, DataFactoryException {
         log.info("Updating reservation: {} by user: {}", id, userId);
 
@@ -197,7 +198,7 @@ public class ReservationServiceImpl implements ReservationService {
 
     @Override
     @Transactional
-    public void cancelReservation(Long id, Long userId) throws CacheException, DataFactoryException {
+    public void cancelReservation(Long id, String userId) throws CacheException, DataFactoryException {
         log.info("Cancelling reservation: {} by user: {}", id, userId);
 
         ReservationDto reservation = reservationFactory.getModel(id, null);

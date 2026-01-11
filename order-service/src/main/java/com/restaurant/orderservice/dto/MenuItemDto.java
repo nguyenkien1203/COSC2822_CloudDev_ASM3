@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class MenuItemDto {
 
-    private Long id;
+    private String id;
     private String name;
     private String description;
     private BigDecimal price;

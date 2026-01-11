@@ -14,7 +14,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 
 /**
  * Security configuration for Profile Service
- * Uses shared security-module for JWT authentication
+ * Uses shared security-module for JWT authentication and CORS
  */
 @Configuration
 @EnableWebSecurity
@@ -22,29 +22,29 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final BaseSecurityFilter baseSecurityFilter;
+        private final BaseSecurityFilter baseSecurityFilter;
 
-    @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                // Enable CORS
-                .cors(org.springframework.security.config.Customizer.withDefaults())
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+                http
+                                // Enable CORS (uses CorsConfig from security-module)
+                                .cors(org.springframework.security.config.Customizer.withDefaults())
 
-                // Disable CSRF since we're using stateless authentication
-                .csrf(AbstractHttpConfigurer::disable)
+                                // Disable CSRF since we're using stateless authentication
+                                .csrf(AbstractHttpConfigurer::disable)
 
-                // Stateless session management
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                                // Stateless session management
+                                .sessionManagement(session -> session
+                                                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // Permit actuator endpoints for health checks (ALB target group)
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/**", "/health").permitAll()
-                        .anyRequest().permitAll())
+                                // Permit actuator endpoints for health checks (ALB target group)
+                                .authorizeHttpRequests(auth -> auth
+                                                .requestMatchers("/actuator/**", "/health").permitAll()
+                                                .anyRequest().permitAll())
 
-                // Add base security filter from security-module
-                .addFilterBefore(baseSecurityFilter, UsernamePasswordAuthenticationFilter.class);
+                                // Add base security filter from security-module
+                                .addFilterBefore(baseSecurityFilter, UsernamePasswordAuthenticationFilter.class);
 
-        return http.build();
-    }
+                return http.build();
+        }
 }

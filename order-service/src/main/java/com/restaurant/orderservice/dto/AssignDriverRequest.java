@@ -11,12 +11,10 @@ import lombok.*;
 public class AssignDriverRequest implements IBaseModel<Long> {
 
     @NotNull(message = "Driver ID is required")
-    private Long driverId;
-
+    private String driverId;
 
     @Override
     public Long getId() {
-        return driverId;
+        return null; // This is a request DTO, not an entity with ID
     }
 }
-

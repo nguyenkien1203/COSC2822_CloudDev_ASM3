@@ -14,7 +14,7 @@ import java.util.List;
 @Repository
 public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     // Find orders by user
-    List<OrderEntity> findByUserIdOrderByCreatedAtDesc(Long userId);
+    List<OrderEntity> findByUserIdOrderByCreatedAtDesc(String userId);
 
     // Find orders by status
     List<OrderEntity> findByStatus(OrderStatus status);
@@ -23,7 +23,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     List<OrderEntity> findByOrderType(OrderType orderType);
 
     // Find orders assigned to driver
-    List<OrderEntity> findByDriverIdAndStatusIn(Long driverId, List<OrderStatus> statuses);
+    List<OrderEntity> findByDriverIdAndStatusIn(String driverId, List<OrderStatus> statuses);
 
     // Find orders by reservation
     List<OrderEntity> findByReservationId(Long reservationId);
@@ -43,7 +43,7 @@ public interface OrderRepository extends JpaRepository<OrderEntity, Long> {
     Long countByStatus(OrderStatus status);
 
     // Check if user has any orders
-    boolean existsByUserId(Long userId);
+    boolean existsByUserId(String userId);
 
     // Find delivery orders ready for pickup
     @Query("SELECT o FROM OrderEntity o WHERE o.orderType = 'DELIVERY' AND o.status = 'READY' AND o.driverId IS NULL")

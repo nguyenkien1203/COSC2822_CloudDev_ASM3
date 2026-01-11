@@ -12,7 +12,7 @@ import java.util.List;
 public interface ReservationService {
 
     // ========== CUSTOMER OPERATIONS ==========
-    ReservationDto createReservation(CreateReservationRequest request, Long userId) throws DataFactoryException;
+    ReservationDto createReservation(CreateReservationRequest request, String userId) throws DataFactoryException;
 
     ReservationDto createGuestReservation(CreateReservationRequest request) throws DataFactoryException;
 
@@ -20,11 +20,12 @@ public interface ReservationService {
 
     ReservationDto getByConfirmationCode(String code) throws CacheException, DataFactoryException;
 
-    List<ReservationDto> getMyReservations(Long userId) throws CacheException, DataFactoryException;
+    List<ReservationDto> getMyReservations(String userId) throws CacheException, DataFactoryException;
 
-    ReservationDto updateReservation(Long id, UpdateReservationRequest request, Long userId) throws CacheException, DataFactoryException;
+    ReservationDto updateReservation(Long id, UpdateReservationRequest request, String userId)
+            throws CacheException, DataFactoryException;
 
-    void cancelReservation(Long id, Long userId) throws CacheException, DataFactoryException;
+    void cancelReservation(Long id, String userId) throws CacheException, DataFactoryException;
 
     // ========== AVAILABILITY ==========
     AvailabilityResponse checkAvailability(AvailabilityRequest request);
@@ -38,7 +39,8 @@ public interface ReservationService {
 
     ReservationDto updateStatus(Long id, UpdateStatusRequest request) throws CacheException, DataFactoryException;
 
-    ReservationDto assignTable(Long reservationId, AssignTableRequest request) throws CacheException, DataFactoryException;
+    ReservationDto assignTable(Long reservationId, AssignTableRequest request)
+            throws CacheException, DataFactoryException;
 
     // ========== PRE-ORDER INTEGRATION ==========
     void linkPreOrder(Long reservationId, Long preOrderId) throws CacheException, DataFactoryException;

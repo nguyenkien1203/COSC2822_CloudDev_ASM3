@@ -14,11 +14,10 @@ import java.math.BigDecimal;
 public class OrderItemDto {
 
     private Long id;
-    private Long menuItemId;
+    private String menuItemId;
     private String menuItemName;
     private Integer quantity;
     private BigDecimal unitPrice;
     private BigDecimal subtotal;
     private String notes;
 }
-

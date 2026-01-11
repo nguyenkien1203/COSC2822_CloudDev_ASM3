@@ -30,7 +30,7 @@ public class OrderEntity implements IBaseEntity<Long> {
     private Long id;
 
     @Column(name = "user_id")
-    private Long userId; // NULL for guest orders
+    private String userId; // Cognito sub (UUID string), NULL for guest orders
 
     @Column(name = "guest_email")
     private String guestEmail; // For guest orders
@@ -69,7 +69,7 @@ public class OrderEntity implements IBaseEntity<Long> {
     private Long reservationId; // Link to reservation (for PRE_ORDER, DINE_IN)
 
     @Column(name = "driver_id")
-    private Long driverId; // Assigned delivery driver
+    private String driverId; // Assigned delivery driver (Cognito sub)
 
     @Column(name = "notes", length = 500)
     private String notes;

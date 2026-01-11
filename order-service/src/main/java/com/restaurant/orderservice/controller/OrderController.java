@@ -35,7 +35,7 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             Authentication authentication) throws DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("POST /api/orders - Creating order for user: {}", userId);
 
         OrderDto order = orderService.createOrder(request, userId);
@@ -75,7 +75,7 @@ public class OrderController {
     public ResponseEntity<List<OrderDto>> getMyOrders(
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("GET /api/orders/my-orders - user: {}", userId);
 
         List<OrderDto> orders = orderService.getMyOrders(userId, null);
@@ -92,7 +92,7 @@ public class OrderController {
             @Valid @RequestBody UpdateOrderRequest request,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("PUT /api/orders/{} - user: {}", id, userId);
 
         OrderDto order = orderService.updateOrder(id, request, userId);
@@ -108,7 +108,7 @@ public class OrderController {
             @PathVariable Long id,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("DELETE /api/orders/{} - user: {}", id, userId);
 
         orderService.cancelOrder(id, userId);
@@ -179,7 +179,7 @@ public class OrderController {
     public ResponseEntity<List<OrderDto>> getDriverAssignedOrders(
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long driverId = extractUserId(authentication);
+        String driverId = extractUserId(authentication);
         log.info("GET /api/orders/driver/assigned - driver: {}", driverId);
 
         List<OrderDto> orders = orderService.getDriverAssignedOrders(driverId);
@@ -195,7 +195,7 @@ public class OrderController {
             @PathVariable Long id,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long driverId = extractUserId(authentication);
+        String driverId = extractUserId(authentication);
         log.info("PATCH /api/orders/{}/out-for-delivery - driver: {}", id, driverId);
 
         OrderDto order = orderService.markOutForDelivery(id, driverId);
@@ -211,7 +211,7 @@ public class OrderController {
             @PathVariable Long id,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long driverId = extractUserId(authentication);
+        String driverId = extractUserId(authentication);
         log.info("PATCH /api/orders/{}/delivered - driver: {}", id, driverId);
 
         OrderDto order = orderService.markDelivered(id, driverId);
@@ -230,7 +230,7 @@ public class OrderController {
             @Valid @RequestBody CreateOrderRequest request,
             Authentication authentication) throws DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("POST /api/orders/pre-order/{} - user: {}", reservationId, userId);
 
         OrderDto order = orderService.createPreOrder(reservationId, request, userId);
@@ -239,7 +239,7 @@ public class OrderController {
 
     // ========== HELPER METHODS ==========
 
-    private Long extractUserId(Authentication authentication) {
+    private String extractUserId(Authentication authentication) {
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal) {
             UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
             return principal.getUserId();

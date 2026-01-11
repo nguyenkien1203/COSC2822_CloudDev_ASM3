@@ -26,11 +26,11 @@ public class ReservationEntity implements IBaseEntity<Long> {
     private Long id;
 
     @Column(name = "confirmation_code", unique = true, nullable = false)
-    private String confirmationCode;  // e.g., "RES-20251201-A3B5"
+    private String confirmationCode; // e.g., "RES-20251201-A3B5"
 
     // Customer info (for registered users)
     @Column(name = "user_id")
-    private Long userId;
+    private String userId;
 
     // Guest info (for non-registered guests)
     @Column(name = "guest_name")

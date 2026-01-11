@@ -15,6 +15,16 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+  # AWS SQS Configuration via Spring Cloud AWS
+  cloud:
+    aws:
+      region:
+        static: ${AWS_REGION:us-east-1}
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID:}
+        secret-key: ${AWS_SECRET_ACCESS_KEY:}
+      sqs:
+        enabled: true
 
 server:
   port: 8085
@@ -31,13 +41,10 @@ kafka:
   consumer:
     group-id: order-service-group
 
-
 # Redis cache
 redis:
   host: localhost
   port: 6379
-
-
 
 # Circuit breaker (optional - if using Resilience4j)
 resilience4j:

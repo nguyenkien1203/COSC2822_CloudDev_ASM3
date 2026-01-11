@@ -10,9 +10,9 @@ import java.util.List;
 
 @Slf4j
 @Component
-public class MenuServiceClientFallback implements MenuServiceClient{
+public class MenuServiceClientFallback implements MenuServiceClient {
     @Override
-    public MenuItemDto getMenuItemById(Long id) {
+    public MenuItemDto getMenuItemById(String id) {
         log.warn("Fallback: Menu service unavailable, returning default for item: {}", id);
         return MenuItemDto.builder()
                 .id(id)

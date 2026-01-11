@@ -20,7 +20,7 @@ public class ReservationDto implements IBaseModel<Long> {
 
     private Long id;
     private String confirmationCode;
-    private Long userId;
+    private String userId;
     private String guestName;
     private String guestEmail;
     private String guestPhone;

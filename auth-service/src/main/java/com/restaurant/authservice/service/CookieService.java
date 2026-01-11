@@ -15,10 +15,10 @@ public class CookieService {
     public ResponseCookie createAccessTokenCookie(String token) {
         return ResponseCookie.from(cookieName, token)
                 .httpOnly(true) // 1. Hide from JavaScript (XSS Protection)
-                .secure(false) // 2. Set to TRUE in Production (HTTPS only)
+                .secure(true) // 2. Set to TRUE in Production (HTTPS only)
                 .path("/") // 3. Available for the whole site
                 .maxAge(expirationDays * 24 * 60 * 60) // Duration in seconds
-                .sameSite("Lax") // 4. Prevent CSRF (Lax is more permissive than Strict for testing)
+                .sameSite("None") // 4. Prevent CSRF (Lax is more permissive than Strict for testing)
                 .domain(null) // 5. Don't set domain to work with localhost
                 .build();
     }
@@ -35,10 +35,10 @@ public class CookieService {
     public ResponseCookie createRefreshTokenCookie(String token) {
         return ResponseCookie.from("refresh_" + cookieName, token)
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/api/auth") // Available for all auth endpoints
                 .maxAge(30 * 24 * 60 * 60) // 30 days
-                .sameSite("Lax")
+                .sameSite("None")
                 .domain(null)
                 .build();
     }
@@ -46,7 +46,7 @@ public class CookieService {
     public ResponseCookie deleteRefreshTokenCookie() {
         return ResponseCookie.from("refresh_" + cookieName, "")
                 .httpOnly(true)
-                .secure(false)
+                .secure(true)
                 .path("/api/auth")
                 .maxAge(0) // Expire immediately
                 .build();

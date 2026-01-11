@@ -2,7 +2,7 @@
 package com.restaurant.orderservice.service.impl;
 
 import com.restaurant.sqsmodule.config.SqsQueueConfig;
-import com.restaurant.sqsmodule.service.IBaseSqsProducer;
+import com.restaurant.sqsmodule.service.BaseSqsProducer;
 import com.restaurant.orderservice.dto.OrderDto;
 import com.restaurant.orderservice.enums.OrderStatus;
 import com.restaurant.orderservice.event.*;
@@ -20,7 +20,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class OrderProducerServiceImpl implements OrderProducerService {
 
-    private final IBaseSqsProducer sqsProducerService;
+    private final BaseSqsProducer sqsProducerService;
 
     @Value("${spring.application.name:order-service}")
     private String serviceName;

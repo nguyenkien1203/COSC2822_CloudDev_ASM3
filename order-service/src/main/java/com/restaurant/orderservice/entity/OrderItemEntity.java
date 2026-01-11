@@ -26,7 +26,7 @@ public class OrderItemEntity implements IBaseEntity<Long> {
     private OrderEntity order;
 
     @Column(name = "menu_item_id", nullable = false)
-    private Long menuItemId;
+    private String menuItemId;
 
     @Column(name = "menu_item_name", nullable = false)
     private String menuItemName; // Denormalized for order history
@@ -51,4 +51,3 @@ public class OrderItemEntity implements IBaseEntity<Long> {
         }
     }
 }
-

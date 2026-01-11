@@ -16,8 +16,10 @@ import com.restaurant.orderservice.service.OrderService;
 import com.restaurant.redismodule.exception.CacheException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,13 +34,13 @@ import java.util.List;
 public class OrderServiceImpl implements OrderService {
 
     private final OrderFactory orderFactory;
-
     private final MenuServiceClient menuServiceClient;
 
+    @Autowired
     private final OrderProducerService orderProducerService;
 
     @Override
-    public OrderDto createOrder(CreateOrderRequest request, Long userId) throws DataFactoryException {
+    public OrderDto createOrder(CreateOrderRequest request, String userId) throws DataFactoryException {
         log.info("Create order with orderId");
 
         validateOrderRequest(request);
@@ -101,7 +103,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public List<OrderDto> getMyOrders(Long userId, OrderFilter filter) throws CacheException, DataFactoryException {
+    public List<OrderDto> getMyOrders(String userId, OrderFilter filter) throws CacheException, DataFactoryException {
         log.info("Getting orders for user: {}", userId);
 
         OrderFilter userFilter = OrderFilter.builder()
@@ -113,7 +115,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public OrderDto updateOrder(Long id, UpdateOrderRequest request, Long userId)
+    public OrderDto updateOrder(Long id, UpdateOrderRequest request, String userId)
             throws CacheException, DataFactoryException {
         log.info("Updating order: {} by user: {}", id, userId);
 
@@ -150,7 +152,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void cancelOrder(Long id, Long userId) throws CacheException, DataFactoryException {
+    public void cancelOrder(Long id, String userId) throws CacheException, DataFactoryException {
         log.info("Cancelling order: {} by user: {}", id, userId);
 
         OrderDto order = orderFactory.getModel(id, null);
@@ -231,7 +233,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public List<OrderDto> getDriverAssignedOrders(Long driverId) throws CacheException, DataFactoryException {
+    public List<OrderDto> getDriverAssignedOrders(String driverId) throws CacheException, DataFactoryException {
         log.info("Getting orders assigned to driver: {}", driverId);
 
         OrderFilter filter = OrderFilter.builder()
@@ -242,7 +244,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderDto markOutForDelivery(Long orderId, Long driverId) throws CacheException, DataFactoryException {
+    public OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException {
         log.info("Marking order {} as out for delivery by driver {}", orderId, driverId);
 
         OrderDto order = orderFactory.getModel(orderId, null);
@@ -266,7 +268,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderDto markDelivered(Long orderId, Long driverId) throws CacheException, DataFactoryException {
+    public OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException {
         log.info("Marking order {} as delivered by driver {}", orderId, driverId);
 
         OrderDto order = orderFactory.getModel(orderId, null);
@@ -292,7 +294,7 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, Long userId)
+    public OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, String userId)
             throws DataFactoryException {
         log.info("Creating pre-order for reservation: {} by user: {}", reservationId, userId);
 
@@ -333,7 +335,7 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     @Transactional
-    public void cancelOrder(Long orderId, String reason) throws CacheException, DataFactoryException {
+    public void cancelOrderByEvent(Long orderId, String reason) throws CacheException, DataFactoryException {
         log.info("Cancelling order: {} with reason: {} (triggered by event)", orderId, reason);
 
         OrderDto order = orderFactory.getModel(orderId, null);

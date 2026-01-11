@@ -20,5 +20,5 @@ public class ReservationCompletedEvent extends BaseEvent {
 
     private Long reservationId;
     private Long tableId;
-    private Long userId;
+    private String userId;
 }

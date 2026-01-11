@@ -11,4 +11,32 @@ spring:
         initial-interval: 1000
         multiplier: 1.1
         max-interval: 2000
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+
+management:
+  endpoint:
+    health:
+      show-details: always
+  health:
+    db:
+      enabled: false
+    redis:
+      enabled: false
+
+restaurant:
+  security:
+    endpoints:
+      - path: /actuator/**
+        type: PUBLIC
+      - path: /health
+        type: PUBLIC
+      - path: /api/reservations/guest
+        type: PUBLIC
+      - path: /api/reservations/availability
+        type: PUBLIC
+      - path: /api/reservations/confirmation/**
+        type: PUBLIC
 

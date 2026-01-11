@@ -1,7 +1,7 @@
 package com.restaurant.reservationservice.service.impl;
 
 import com.restaurant.sqsmodule.config.SqsQueueConfig;
-import com.restaurant.sqsmodule.service.IBaseSqsProducer;
+import com.restaurant.sqsmodule.service.BaseSqsProducer;
 import com.restaurant.reservationservice.dto.ReservationDto;
 import com.restaurant.reservationservice.event.*;
 import com.restaurant.reservationservice.service.ReservationProducerService;
@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class ReservationProducerServiceImpl implements ReservationProducerService {
 
-    private final IBaseSqsProducer sqsProducerService;
+    private final BaseSqsProducer sqsProducerService;
 
     @Value("${spring.application.name:reservation-service}")
     private String serviceName;

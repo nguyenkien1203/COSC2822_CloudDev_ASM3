@@ -10,16 +10,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import java.util.List;
 
 // Add configuration = FeignClientConfig.class to apply the interceptor
-@FeignClient(name = "menu-service", configuration = FeignClientConfig.class, fallback = MenuServiceClientFallback.class)
+// Uses url from application.yml: menu-service.url
+@FeignClient(name = "menu-service", url = "${menu-service.url:}", configuration = FeignClientConfig.class, fallback = MenuServiceClientFallback.class)
 public interface MenuServiceClient {
 
     @GetMapping("/api/menu/{id}")
-    MenuItemDto getMenuItemById(@PathVariable("id") Long id);
+    MenuItemDto getMenuItemById(@PathVariable("id") String id);
 
-//    // Changed to use RequestParam (standard REST)
-//    // URL will look like: /api/menu/batch?ids=1,2,3
-//    @GetMapping("/api/menu/batch")
-//    List<MenuItemDto> getMenuItemsByIds(@RequestParam("ids") List<Long> ids);
+    // // Changed to use RequestParam (standard REST)
+    // // URL will look like: /api/menu/batch?ids=1,2,3
+    // @GetMapping("/api/menu/batch")
+    // List<MenuItemDto> getMenuItemsByIds(@RequestParam("ids") List<Long> ids);
 
     @GetMapping("/api/menu/available")
     List<MenuItemDto> getAvailableMenuItems();

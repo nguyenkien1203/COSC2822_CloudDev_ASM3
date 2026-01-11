@@ -22,6 +22,6 @@ public class PreOrderCreatedEvent extends BaseEvent {
 
     private Long orderId;
     private Long reservationId;
-    private Long userId;
+    private String userId;
     private BigDecimal totalAmount;
 }

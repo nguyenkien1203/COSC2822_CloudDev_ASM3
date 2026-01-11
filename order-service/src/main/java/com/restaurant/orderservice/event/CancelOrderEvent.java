@@ -14,6 +14,6 @@ import lombok.experimental.SuperBuilder;
 @EqualsAndHashCode(callSuper = true)
 public class CancelOrderEvent extends BaseEvent {
     private Long orderId;
-    private Long userId;
+    private String userId;
     private String reason;
 }

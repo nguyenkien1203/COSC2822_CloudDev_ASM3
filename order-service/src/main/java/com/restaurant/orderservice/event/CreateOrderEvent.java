@@ -16,7 +16,7 @@ import java.time.LocalDateTime;
 public class CreateOrderEvent extends BaseEvent {
 
     private Long orderId;
-    private Long userId;
+    private String userId;
     private String orderType;
     private BigDecimal totalAmount;
     private String status;

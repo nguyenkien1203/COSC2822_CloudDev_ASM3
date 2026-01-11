@@ -34,7 +34,7 @@ public class ReservationController {
             @Valid @RequestBody CreateReservationRequest request,
             Authentication authentication) throws DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("POST /api/reservations - Creating reservation for user: {}", userId);
 
         ReservationDto reservation = reservationService.createReservation(request, userId);
@@ -74,7 +74,7 @@ public class ReservationController {
     public ResponseEntity<List<ReservationDto>> getMyReservations(
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("GET /api/reservations/my-reservations - user: {}", userId);
 
         List<ReservationDto> reservations = reservationService.getMyReservations(userId);
@@ -88,7 +88,7 @@ public class ReservationController {
             @Valid @RequestBody UpdateReservationRequest request,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("PUT /api/reservations/{} - user: {}", id, userId);
 
         ReservationDto reservation = reservationService.updateReservation(id, request, userId);
@@ -101,7 +101,7 @@ public class ReservationController {
             @PathVariable Long id,
             Authentication authentication) throws CacheException, DataFactoryException {
 
-        Long userId = extractUserId(authentication);
+        String userId = extractUserId(authentication);
         log.info("DELETE /api/reservations/{} - user: {}", id, userId);
 
         reservationService.cancelReservation(id, userId);
@@ -172,7 +172,7 @@ public class ReservationController {
 
     // ========== HELPER METHODS ==========
 
-    private Long extractUserId(Authentication authentication) {
+    private String extractUserId(Authentication authentication) {
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal) {
             UserPrincipal principal = (UserPrincipal) authentication.getPrincipal();
             return principal.getUserId();
