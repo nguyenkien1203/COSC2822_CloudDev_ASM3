@@ -3,6 +3,7 @@ import boto3
 import uuid
 import base64
 import urllib.request
+import os
 from datetime import datetime
 from decimal import Decimal
 from boto3.dynamodb.conditions import Key, Attr
@@ -11,6 +12,11 @@ from boto3.dynamodb.conditions import Key, Attr
 dynamodb = boto3.resource('dynamodb')
 TABLE_NAME = 'restaurant-menu'
 table = dynamodb.Table(TABLE_NAME)
+
+# Initialize S3
+s3_client = boto3.client('s3')
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'restaurant-menu-images-616967801866')
+S3_REGION = os.environ.get('S3_REGION', 'us-east-1')
 
 # Cognito configuration
 COGNITO_REGION = 'us-east-1'
@@ -23,20 +29,20 @@ _jwks_cache = None
 
 def handler(event, context):
     """Main Lambda handler - routes requests to appropriate function"""
-    http_method = event['requestContext']['http']['method']
-    path = event['rawPath']
-    
-    print(f"Received: {http_method} {path}")
-    
-    # Handle OPTIONS for CORS preflight - return 200 with CORS headers
-    if http_method == 'OPTIONS':
-        return {
-            'statusCode': 200,
-            'headers': get_cors_headers(event),
-            'body': ''
-        }
-    
     try:
+        http_method = event['requestContext']['http']['method']
+        path = event['rawPath']
+        
+        print(f"Received: {http_method} {path}")
+        
+        # Handle OPTIONS for CORS preflight - return 200 with CORS headers
+        if http_method == 'OPTIONS':
+            return {
+                'statusCode': 200,
+                'headers': get_cors_headers(event),
+                'body': ''
+            }
+        
         # Route based on path and method
         if path == '/api/menu/available' and http_method == 'GET':
             return get_available_menus(event)
@@ -46,6 +52,8 @@ def handler(event, context):
             return get_all_menus_public(event)
         elif path == '/api/menu' and http_method == 'POST':
             return create_menu(event)
+        elif path == '/api/menu/upload-url' and http_method == 'POST':
+            return get_upload_url(event)
         elif path.startswith('/api/menu/') and path.endswith('/toggle-availability') and http_method == 'PATCH':
             menu_id = path.split('/')[3]
             return toggle_availability(menu_id, event)
@@ -128,6 +136,49 @@ def get_all_menus(event):
     return response(200, convert_decimals(items), event)
 
 
+def get_upload_url(event):
+    """POST /api/menu/upload-url - Admin only
+    Returns a presigned URL for uploading images to S3
+    """
+    auth_result = authenticate_admin(event)
+    if auth_result['error']:
+        return auth_result['response']
+    
+    # Handle empty or None body
+    body_str = event.get('body') or '{}'
+    try:
+        body = json.loads(body_str)
+    except json.JSONDecodeError:
+        return response(400, {'error': 'Invalid JSON body. Expected: {"filename": "image.jpg", "contentType": "image/jpeg"}'}, event)
+    
+    filename = body.get('filename', 'image.jpg')
+    content_type = body.get('contentType', 'image/jpeg')
+    
+    # Generate unique key
+    ext = filename.split('.')[-1] if '.' in filename else 'jpg'
+    key = f"menu-images/{uuid.uuid4()}.{ext}"
+    
+    # Generate presigned URL for PUT (upload)
+    presigned_url = s3_client.generate_presigned_url(
+        'put_object',
+        Params={
+            'Bucket': S3_BUCKET_NAME,
+            'Key': key,
+            'ContentType': content_type
+        },
+        ExpiresIn=300  # 5 minutes
+    )
+    
+    # The public URL where the image will be accessible
+    image_url = f"https://{S3_BUCKET_NAME}.s3.{S3_REGION}.amazonaws.com/{key}"
+    
+    return response(200, {
+        'uploadUrl': presigned_url,
+        'imageUrl': image_url,
+        'key': key
+    }, event)
+
+
 def create_menu(event):
     """POST /api/menu - Admin only"""
     auth_result = authenticate_admin(event)
@@ -137,6 +188,20 @@ def create_menu(event):
     body = json.loads(event.get('body', '{}'))
     now = datetime.utcnow().isoformat()
     
+    # Process tags: ensure it is a list
+    tags = body.get('tags', [])
+    if not isinstance(tags, list):
+        tags = []
+
+    # Convert isAvailable to string for DynamoDB GSI (expects 'true' or 'false')
+    is_available = body.get('isAvailable', True)
+    if isinstance(is_available, bool):
+        is_available = 'true' if is_available else 'false'
+    elif isinstance(is_available, str):
+        is_available = 'true' if is_available.lower() == 'true' else 'false'
+    else:
+        is_available = 'true'
+
     item = {
         'id': str(uuid.uuid4()),
         'name': body.get('name'),
@@ -144,7 +209,8 @@ def create_menu(event):
         'price': Decimal(str(body.get('price', 0))),
         'category': body.get('category', ''),
         'imageUrl': body.get('imageUrl', ''),
-        'isAvailable': 'true',
+        'tags': tags,
+        'isAvailable': is_available,
         'preparationTime': body.get('preparationTime', 0),
         'calories': body.get('calories', 0),
         'createdAt': now,
@@ -194,6 +260,12 @@ def update_menu(menu_id, event):
     if 'calories' in body:
         update_expr += ", calories = :cal"
         expr_values[':cal'] = body['calories']
+    
+    # Handle tags update
+    if 'tags' in body:
+        update_expr += ", tags = :tags"
+        tags_input = body['tags']
+        expr_values[':tags'] = tags_input if isinstance(tags_input, list) else []
     
     update_params = {
         'Key': {'id': menu_id},
@@ -272,7 +344,7 @@ def authenticate_admin(event):
         if isinstance(groups, str):
             groups = [groups]
         
-        print(f"User groups: {groups}")
+        # print(f"User groups: {groups}")
         
         if 'ADMIN' not in groups:
             return {
@@ -297,18 +369,20 @@ def get_token_from_cookie(event):
     cookies = event.get('cookies', [])
     
     # Try header format first (API Gateway HTTP API v2)
-    for cookie in cookies:
-        if cookie.startswith(f'{COOKIE_NAME}='):
-            return cookie.split('=', 1)[1]
+    if cookies:
+        for cookie in cookies:
+            if cookie.startswith(f'{COOKIE_NAME}='):
+                return cookie.split('=', 1)[1]
     
     # Try headers (API Gateway REST API or different format)
     headers = event.get('headers', {})
     cookie_header = headers.get('cookie') or headers.get('Cookie', '')
     
-    for part in cookie_header.split(';'):
-        part = part.strip()
-        if part.startswith(f'{COOKIE_NAME}='):
-            return part.split('=', 1)[1]
+    if cookie_header:
+        for part in cookie_header.split(';'):
+            part = part.strip()
+            if part.startswith(f'{COOKIE_NAME}='):
+                return part.split('=', 1)[1]
     
     # Also check Authorization header as fallback
     auth_header = headers.get('authorization') or headers.get('Authorization', '')

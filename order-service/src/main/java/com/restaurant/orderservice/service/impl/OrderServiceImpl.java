@@ -33,6 +33,10 @@ import java.util.List;
 @RequiredArgsConstructor
 public class OrderServiceImpl implements OrderService {
 
+    // Tax and fee constants
+    private static final BigDecimal TAX_RATE = new BigDecimal("0.08"); // 8%
+    private static final BigDecimal DELIVERY_FEE = new BigDecimal("5.00"); // $5.00
+
     private final OrderFactory orderFactory;
     private final MenuServiceClient menuServiceClient;
 
@@ -46,7 +50,12 @@ public class OrderServiceImpl implements OrderService {
         validateOrderRequest(request);
 
         List<OrderItemDto> orderItems = buildOrderItems(request.getItems());
-        BigDecimal totalAmount = calculateTotal(orderItems);
+
+        // Calculate amounts
+        BigDecimal subtotal = calculateSubtotal(orderItems);
+        BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal deliveryFee = request.getOrderType() == OrderType.DELIVERY ? DELIVERY_FEE : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee);
 
         OrderDto orderDto = OrderDto.builder()
                 .userId(userId)
@@ -54,10 +63,14 @@ public class OrderServiceImpl implements OrderService {
                 .status(OrderStatus.PENDING)
                 .paymentStatus(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
+                .subtotal(subtotal)
+                .taxAmount(taxAmount)
+                .deliveryFee(deliveryFee)
                 .totalAmount(totalAmount)
                 .deliveryAddress(request.getDeliveryAddress())
                 .reservationId(request.getReservationId())
                 .notes(request.getNotes())
+                .estimatedPickupTime(request.getEstimatedPickupTime())
                 .orderItems(orderItems)
                 .build();
 
@@ -68,12 +81,17 @@ public class OrderServiceImpl implements OrderService {
 
     @Override
     public OrderDto createGuestOrder(CreateOrderRequest request) throws DataFactoryException {
-        log.info("Create order with orderId");
+        log.info("Create guest order");
 
         validateOrderRequest(request);
 
         List<OrderItemDto> orderItems = buildOrderItems(request.getItems());
-        BigDecimal totalAmount = calculateTotal(orderItems);
+
+        // Calculate amounts
+        BigDecimal subtotal = calculateSubtotal(orderItems);
+        BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal deliveryFee = request.getOrderType() == OrderType.DELIVERY ? DELIVERY_FEE : BigDecimal.ZERO;
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee);
 
         OrderDto orderDto = OrderDto.builder()
                 .guestEmail(request.getGuestEmail())
@@ -83,9 +101,13 @@ public class OrderServiceImpl implements OrderService {
                 .status(OrderStatus.PENDING)
                 .paymentStatus(PaymentStatus.PENDING)
                 .paymentMethod(request.getPaymentMethod())
+                .subtotal(subtotal)
+                .taxAmount(taxAmount)
+                .deliveryFee(deliveryFee)
                 .totalAmount(totalAmount)
                 .deliveryAddress(request.getDeliveryAddress())
                 .notes(request.getNotes())
+                .estimatedPickupTime(request.getEstimatedPickupTime())
                 .orderItems(orderItems)
                 .build();
 
@@ -135,7 +157,18 @@ public class OrderServiceImpl implements OrderService {
         if (request.getItems() != null && !request.getItems().isEmpty()) {
             List<OrderItemDto> newItems = buildOrderItems(request.getItems());
             existingOrder.setOrderItems(newItems);
-            existingOrder.setTotalAmount(calculateTotal(newItems));
+
+            // Recalculate amounts
+            BigDecimal subtotal = calculateSubtotal(newItems);
+            BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+            BigDecimal deliveryFee = existingOrder.getOrderType() == OrderType.DELIVERY ? DELIVERY_FEE
+                    : BigDecimal.ZERO;
+            BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee);
+
+            existingOrder.setSubtotal(subtotal);
+            existingOrder.setTaxAmount(taxAmount);
+            existingOrder.setDeliveryFee(deliveryFee);
+            existingOrder.setTotalAmount(totalAmount);
         }
         if (request.getPaymentMethod() != null) {
             existingOrder.setPaymentMethod(request.getPaymentMethod());
@@ -230,6 +263,56 @@ public class OrderServiceImpl implements OrderService {
     public List<OrderDto> getKitchenQueue() throws CacheException, DataFactoryException {
         log.info("Getting kitchen queue");
         return orderFactory.getKitchenQueue();
+    }
+
+    @Override
+    @Transactional
+    public OrderDto createDineInOrder(AdminCreateDineInRequest request) throws DataFactoryException {
+        log.info("Admin creating dine-in order for table: {}", request.getTableId());
+
+        List<OrderItemDto> orderItems = buildOrderItems(request.getItems());
+
+        // Calculate amounts
+        BigDecimal subtotal = calculateSubtotal(orderItems);
+        BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
+        BigDecimal totalAmount = subtotal.add(taxAmount); // No delivery fee for dine-in
+
+        OrderDto orderDto = OrderDto.builder()
+                .orderType(OrderType.DINE_IN)
+                .status(OrderStatus.CONFIRMED) // Auto-confirm since customer is present
+                .paymentStatus(PaymentStatus.PENDING)
+                .subtotal(subtotal)
+                .taxAmount(taxAmount)
+                .deliveryFee(BigDecimal.ZERO)
+                .totalAmount(totalAmount)
+                .reservationId(request.getReservationId())
+                .notes(request.getNotes())
+                .estimatedReadyTime(LocalDateTime.now().plusMinutes(20)) // Faster for dine-in
+                .orderItems(orderItems)
+                .build();
+
+        OrderDto createdOrder = orderFactory.create(orderDto);
+        orderProducerService.publishOrderCreatedEvent(createdOrder);
+
+        log.info("Admin created dine-in order: {}", createdOrder.getId());
+        return createdOrder;
+    }
+
+    @Override
+    @Transactional
+    public OrderDto updatePaymentStatus(Long orderId, UpdatePaymentStatusRequest request)
+            throws CacheException, DataFactoryException {
+        log.info("Admin updating payment status for order {} to {}", orderId, request.getNewPaymentStatus());
+
+        OrderDto order = orderFactory.getModel(orderId, null);
+        PaymentStatus oldStatus = order.getPaymentStatus();
+
+        order.setPaymentStatus(request.getNewPaymentStatus());
+        OrderDto updatedOrder = orderFactory.update(order, null);
+
+        log.info("Payment status updated from {} to {} for order {}",
+                oldStatus, request.getNewPaymentStatus(), orderId);
+        return updatedOrder;
     }
 
     @Override
@@ -357,7 +440,7 @@ public class OrderServiceImpl implements OrderService {
      * ==================HELPER METHOD ============================================
      */
 
-    private BigDecimal calculateTotal(List<OrderItemDto> orderItems) {
+    private BigDecimal calculateSubtotal(List<OrderItemDto> orderItems) {
         return orderItems.stream()
                 .map(OrderItemDto::getSubtotal)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -419,6 +502,10 @@ public class OrderServiceImpl implements OrderService {
 
         if (request.getOrderType() == OrderType.PRE_ORDER && request.getReservationId() == null) {
             throw new DataFactoryException("Reservation ID is required for pre-orders");
+        }
+
+        if (request.getOrderType() == OrderType.TAKEAWAY && request.getEstimatedPickupTime() == null) {
+            throw new DataFactoryException("Estimated pickup time is required for takeaway orders");
         }
     }
 

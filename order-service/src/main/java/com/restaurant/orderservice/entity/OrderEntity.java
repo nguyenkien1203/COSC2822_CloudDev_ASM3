@@ -59,8 +59,20 @@ public class OrderEntity implements IBaseEntity<Long> {
     @Column(name = "payment_method")
     private PaymentMethod paymentMethod;
 
+    @Column(name = "subtotal", precision = 10, scale = 2)
+    private BigDecimal subtotal; // Sum of all item prices before tax/fees
+
+    @Column(name = "tax_amount", precision = 10, scale = 2)
+    private BigDecimal taxAmount; // 8% of subtotal
+
+    @Column(name = "delivery_fee", precision = 10, scale = 2)
+    private BigDecimal deliveryFee; // Constant fee for DELIVERY orders
+
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
-    private BigDecimal totalAmount;
+    private BigDecimal totalAmount; // subtotal + taxAmount + deliveryFee
+
+    @Column(name = "estimated_pickup_time")
+    private LocalDateTime estimatedPickupTime; // User input for TAKEAWAY orders
 
     @Column(name = "delivery_address", length = 1000)
     private String deliveryAddress; // For delivery orders

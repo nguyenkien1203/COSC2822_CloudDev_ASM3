@@ -10,6 +10,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Data
@@ -36,6 +37,9 @@ public class CreateOrderRequest {
 
     // Special instructions
     private String notes;
+
+    // Estimated pickup time (for TAKEAWAY orders)
+    private LocalDateTime estimatedPickupTime;
 
     // Guest information (for guest orders)
     private String guestEmail;

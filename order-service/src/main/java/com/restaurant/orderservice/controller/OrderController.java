@@ -169,6 +169,33 @@ public class OrderController {
         return ResponseEntity.ok(orders);
     }
 
+    /**
+     * Admin: Create dine-in order (for walk-in customers)
+     */
+    @PostMapping("/admin/dine-in")
+    @PreAuthorize("hasAnyRole('ADMIN', 'KITCHEN')")
+    public ResponseEntity<OrderDto> createDineInOrder(
+            @Valid @RequestBody AdminCreateDineInRequest request) throws DataFactoryException {
+
+        log.info("POST /api/orders/admin/dine-in - Creating dine-in order for table: {}", request.getTableId());
+        OrderDto order = orderService.createDineInOrder(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+    }
+
+    /**
+     * Admin: Update payment status
+     */
+    @PatchMapping("/{id}/payment-status")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<OrderDto> updatePaymentStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdatePaymentStatusRequest request) throws CacheException, DataFactoryException {
+
+        log.info("PATCH /api/orders/{}/payment-status - new status: {}", id, request.getNewPaymentStatus());
+        OrderDto order = orderService.updatePaymentStatus(id, request);
+        return ResponseEntity.ok(order);
+    }
+
     // ========== DRIVER ENDPOINTS ==========
 
     /**

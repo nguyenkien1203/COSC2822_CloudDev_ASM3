@@ -65,6 +65,17 @@ public interface OrderService {
      */
     List<OrderDto> getKitchenQueue() throws CacheException, DataFactoryException;
 
+    /**
+     * Admin: Create dine-in order (no user authentication required)
+     */
+    OrderDto createDineInOrder(AdminCreateDineInRequest request) throws DataFactoryException;
+
+    /**
+     * Admin: Update payment status
+     */
+    OrderDto updatePaymentStatus(Long orderId, UpdatePaymentStatusRequest request)
+            throws CacheException, DataFactoryException;
+
     // ========== DELIVERY DRIVER OPERATIONS ==========
 
     /**

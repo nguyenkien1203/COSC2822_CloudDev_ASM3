@@ -54,7 +54,11 @@ public class OrderFactory extends BaseCrudFactory<Long, OrderDto, Long, OrderEnt
                 .status(entity.getStatus())
                 .paymentStatus(entity.getPaymentStatus())
                 .paymentMethod(entity.getPaymentMethod())
+                .subtotal(entity.getSubtotal())
+                .taxAmount(entity.getTaxAmount())
+                .deliveryFee(entity.getDeliveryFee())
                 .totalAmount(entity.getTotalAmount())
+                .estimatedPickupTime(entity.getEstimatedPickupTime())
                 .deliveryAddress(entity.getDeliveryAddress())
                 .reservationId(entity.getReservationId())
                 .driverId(entity.getDriverId())
@@ -92,7 +96,11 @@ public class OrderFactory extends BaseCrudFactory<Long, OrderDto, Long, OrderEnt
                 .status(model.getStatus())
                 .paymentStatus(model.getPaymentStatus())
                 .paymentMethod(model.getPaymentMethod())
+                .subtotal(model.getSubtotal())
+                .taxAmount(model.getTaxAmount())
+                .deliveryFee(model.getDeliveryFee())
                 .totalAmount(model.getTotalAmount())
+                .estimatedPickupTime(model.getEstimatedPickupTime())
                 .deliveryAddress(model.getDeliveryAddress())
                 .reservationId(model.getReservationId())
                 .driverId(model.getDriverId())
@@ -149,6 +157,18 @@ public class OrderFactory extends BaseCrudFactory<Long, OrderDto, Long, OrderEnt
         }
         if (model.getTotalAmount() != null) {
             oldEntity.setTotalAmount(model.getTotalAmount());
+        }
+        if (model.getSubtotal() != null) {
+            oldEntity.setSubtotal(model.getSubtotal());
+        }
+        if (model.getTaxAmount() != null) {
+            oldEntity.setTaxAmount(model.getTaxAmount());
+        }
+        if (model.getDeliveryFee() != null) {
+            oldEntity.setDeliveryFee(model.getDeliveryFee());
+        }
+        if (model.getEstimatedPickupTime() != null) {
+            oldEntity.setEstimatedPickupTime(model.getEstimatedPickupTime());
         }
 
         return oldEntity;

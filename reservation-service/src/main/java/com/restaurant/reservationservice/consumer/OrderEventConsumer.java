@@ -1,16 +1,17 @@
 package com.restaurant.reservationservice.consumer;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.restaurant.sqsmodule.config.SqsQueueConfig;
 import com.restaurant.reservationservice.event.PreOrderCreatedEvent;
 import com.restaurant.reservationservice.service.ReservationService;
+import io.awspring.cloud.sqs.annotation.SqsListener;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import io.awspring.cloud.sqs.annotation.SqsListener;
 import org.springframework.messaging.handler.annotation.Payload;
 import org.springframework.stereotype.Component;
 
 /**
- * Kafka consumer for order-related events from order-service.
+ * SQS consumer for order-related events from order-service.
  * Handles events that affect reservations (pre-order creation).
  */
 @Slf4j
@@ -19,14 +20,19 @@ import org.springframework.stereotype.Component;
 public class OrderEventConsumer {
 
     private final ReservationService reservationService;
+    private final ObjectMapper objectMapper;
 
     /**
      * Handle pre-order created event - links the pre-order to the reservation.
+     * Receives String payload to avoid JavaType header class resolution issues.
      */
     @SqsListener(queueNames = SqsQueueConfig.PRE_ORDER_CREATED_QUEUE)
-    public void handlePreOrderCreated(@Payload PreOrderCreatedEvent event) {
+    public void handlePreOrderCreated(@Payload String messageBody) {
 
         try {
+            // Manually deserialize to our local event class
+            PreOrderCreatedEvent event = objectMapper.readValue(messageBody, PreOrderCreatedEvent.class);
+
             log.info(
                     "Received PRE_ORDER_CREATED event - eventId: {}, orderId: {}, reservationId: {}",
                     event.getEventId(), event.getOrderId(), event.getReservationId());
@@ -43,9 +49,7 @@ public class OrderEventConsumer {
                     event.getOrderId(), event.getReservationId());
 
         } catch (Exception e) {
-            log.error("Error handling PRE_ORDER_CREATED event - eventId: {}, orderId: {}, reservationId: {}",
-                    event.getEventId(), event.getOrderId(), event.getReservationId(), e);
-            // Consider sending to DLQ (Dead Letter Queue) here
+            log.error("Error handling PRE_ORDER_CREATED event: {}", messageBody, e);
         }
     }
 }

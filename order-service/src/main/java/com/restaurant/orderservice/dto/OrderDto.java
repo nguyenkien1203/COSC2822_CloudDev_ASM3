@@ -29,7 +29,11 @@ public class OrderDto implements IBaseModel<Long> {
     private OrderStatus status;
     private PaymentStatus paymentStatus;
     private PaymentMethod paymentMethod;
+    private BigDecimal subtotal;
+    private BigDecimal taxAmount;
+    private BigDecimal deliveryFee;
     private BigDecimal totalAmount;
+    private LocalDateTime estimatedPickupTime;
     private String deliveryAddress;
     private Long reservationId;
     private String driverId;
