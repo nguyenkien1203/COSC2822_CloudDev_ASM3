@@ -15,12 +15,12 @@ table = dynamodb.Table(TABLE_NAME)
 
 # Initialize S3
 s3_client = boto3.client('s3')
-S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'restaurant-menu-images-616967801866')
+S3_BUCKET_NAME = os.environ.get('S3_BUCKET_NAME', 'restaurant-menu-images-556607597153')
 S3_REGION = os.environ.get('S3_REGION', 'us-east-1')
 
 # Cognito configuration
 COGNITO_REGION = 'us-east-1'
-USER_POOL_ID = 'us-east-1_YyEqs4kkV'  
+USER_POOL_ID = 'us-east-1_9Kbie4xHw'
 COOKIE_NAME = 'auth_token'
 
 # Cache for JWKS

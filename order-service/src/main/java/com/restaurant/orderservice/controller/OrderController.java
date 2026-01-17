@@ -264,6 +264,19 @@ public class OrderController {
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
 
+    /**
+     * Create guest pre-order for reservation (no authentication required)
+     */
+    @PostMapping("/guest/pre-order/{reservationId}")
+    public ResponseEntity<OrderDto> createGuestPreOrder(
+            @PathVariable Long reservationId,
+            @Valid @RequestBody CreateOrderRequest request) throws DataFactoryException {
+
+        log.info("POST /api/orders/guest/pre-order/{} - Creating guest pre-order", reservationId);
+        OrderDto order = orderService.createGuestPreOrder(reservationId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(order);
+    }
+
     // ========== HELPER METHODS ==========
 
     private String extractUserId(Authentication authentication) {

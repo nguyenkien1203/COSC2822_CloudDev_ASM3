@@ -393,6 +393,22 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    public OrderDto createGuestPreOrder(Long reservationId, CreateOrderRequest request)
+            throws DataFactoryException {
+        log.info("Creating guest pre-order for reservation: {}", reservationId);
+
+        request.setOrderType(OrderType.PRE_ORDER);
+        request.setReservationId(reservationId);
+
+        OrderDto createdOrder = createGuestOrder(request);
+
+        // Publish pre-order created event for reservation service
+        orderProducerService.publishPreOrderCreatedEvent(createdOrder);
+
+        return createdOrder;
+    }
+
+    @Override
     @Transactional
     public void confirmPreOrder(Long orderId) throws CacheException, DataFactoryException {
         log.info("Confirming pre-order: {} (triggered by CustomerSeatedEvent)", orderId);

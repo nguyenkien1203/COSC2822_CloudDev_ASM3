@@ -19,8 +19,10 @@ import java.util.Arrays;
 import java.util.List;
 
 /**
- * Security configuration for JWT-based authentication with role-based authorization
- * Supports both cookie-based (web app) and header-based (service-to-service) authentication
+ * Security configuration for JWT-based authentication with role-based
+ * authorization
+ * Supports both cookie-based (web app) and header-based (service-to-service)
+ * authentication
  */
 @Configuration
 @EnableWebSecurity
@@ -48,13 +50,13 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "http://localhost:5173",
-                "http://restaurant-alb-381097283.us-east-1.elb.amazonaws.com"
-        ));
+                "http://restaurant-alb-696207792.us-east-1.elb.amazonaws.com",
+                "https://nvkncf9aa6.execute-api.us-east-1.amazonaws.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
@@ -71,34 +73,33 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/logout", "/api/auth/refresh").permitAll()
                         .requestMatchers("/api/auth/confirm", "/api/auth/resend-code").permitAll()
                         .requestMatchers("/actuator/health", "/actuator/info").permitAll()
-                        
+
                         // User endpoints - requires authentication
                         .requestMatchers("/api/auth/me").authenticated()
-                        
+
                         // Admin-only endpoints
                         .requestMatchers("/api/auth/admin/**").hasRole("ADMIN")
-                        
+
                         // Manager and Admin endpoints
                         .requestMatchers("/api/auth/manager/**").hasAnyRole("MANAGER", "ADMIN")
-                        
+
                         // All other requests require authentication
-                        .anyRequest().authenticated()
-                )
+                        .anyRequest().authenticated())
                 // Configure exception handling
                 .exceptionHandling(ex -> ex
                         // Handle authentication failures (401)
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setContentType("application/json");
                             response.setStatus(401);
-                            response.getWriter().write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
+                            response.getWriter()
+                                    .write("{\"error\":\"Unauthorized\",\"message\":\"Authentication required\"}");
                         })
                         // Handle authorization failures (403)
                         .accessDeniedHandler((request, response, accessDeniedException) -> {
                             response.setContentType("application/json");
                             response.setStatus(403);
                             response.getWriter().write("{\"error\":\"Forbidden\",\"message\":\"Access denied\"}");
-                        })
-                )
+                        }))
                 // Add the JWT filter before UsernamePasswordAuthenticationFilter
                 .addFilterBefore(jwtCookieFilter, UsernamePasswordAuthenticationFilter.class);
 

@@ -10,105 +10,112 @@ import java.util.List;
 
 public interface OrderService {
 
-    // ========== CUSTOMER OPERATIONS ==========
+        // ========== CUSTOMER OPERATIONS ==========
 
-    /**
-     * Create a new order for registered user
-     */
-    OrderDto createOrder(CreateOrderRequest request, String userId) throws DataFactoryException;
+        /**
+         * Create a new order for registered user
+         */
+        OrderDto createOrder(CreateOrderRequest request, String userId) throws DataFactoryException;
 
-    /**
-     * Create a new order for guest (no account)
-     */
-    OrderDto createGuestOrder(CreateOrderRequest request) throws DataFactoryException;
+        /**
+         * Create a new order for guest (no account)
+         */
+        OrderDto createGuestOrder(CreateOrderRequest request) throws DataFactoryException;
 
-    /**
-     * Get order by ID
-     */
-    OrderDto getOrderById(Long id) throws CacheException, DataFactoryException;
+        /**
+         * Get order by ID
+         */
+        OrderDto getOrderById(Long id) throws CacheException, DataFactoryException;
 
-    /**
-     * Get current user's order history
-     */
-    List<OrderDto> getMyOrders(String userId, OrderFilter filter) throws CacheException, DataFactoryException;
+        /**
+         * Get current user's order history
+         */
+        List<OrderDto> getMyOrders(String userId, OrderFilter filter) throws CacheException, DataFactoryException;
 
-    /**
-     * Update order (before confirmed)
-     */
-    OrderDto updateOrder(Long id, UpdateOrderRequest request, String userId)
-            throws CacheException, DataFactoryException;
+        /**
+         * Update order (before confirmed)
+         */
+        OrderDto updateOrder(Long id, UpdateOrderRequest request, String userId)
+                        throws CacheException, DataFactoryException;
 
-    /**
-     * Cancel order (before preparing)
-     */
-    void cancelOrder(Long id, String userId) throws CacheException, DataFactoryException;
+        /**
+         * Cancel order (before preparing)
+         */
+        void cancelOrder(Long id, String userId) throws CacheException, DataFactoryException;
 
-    // ========== ADMIN/STAFF OPERATIONS ==========
+        // ========== ADMIN/STAFF OPERATIONS ==========
 
-    /**
-     * Get all orders with filtering (Admin only)
-     */
-    List<OrderDto> getAllOrders(OrderFilter filter) throws CacheException, DataFactoryException;
+        /**
+         * Get all orders with filtering (Admin only)
+         */
+        List<OrderDto> getAllOrders(OrderFilter filter) throws CacheException, DataFactoryException;
 
-    /**
-     * Update order status
-     */
-    OrderDto updateOrderStatus(Long id, UpdateOrderStatusRequest request) throws CacheException, DataFactoryException;
+        /**
+         * Update order status
+         */
+        OrderDto updateOrderStatus(Long id, UpdateOrderStatusRequest request)
+                        throws CacheException, DataFactoryException;
 
-    /**
-     * Assign driver to delivery order
-     */
-    OrderDto assignDriver(Long orderId, AssignDriverRequest request) throws CacheException, DataFactoryException;
+        /**
+         * Assign driver to delivery order
+         */
+        OrderDto assignDriver(Long orderId, AssignDriverRequest request) throws CacheException, DataFactoryException;
 
-    /**
-     * Get kitchen queue (orders to prepare)
-     */
-    List<OrderDto> getKitchenQueue() throws CacheException, DataFactoryException;
+        /**
+         * Get kitchen queue (orders to prepare)
+         */
+        List<OrderDto> getKitchenQueue() throws CacheException, DataFactoryException;
 
-    /**
-     * Admin: Create dine-in order (no user authentication required)
-     */
-    OrderDto createDineInOrder(AdminCreateDineInRequest request) throws DataFactoryException;
+        /**
+         * Admin: Create dine-in order (no user authentication required)
+         */
+        OrderDto createDineInOrder(AdminCreateDineInRequest request) throws DataFactoryException;
 
-    /**
-     * Admin: Update payment status
-     */
-    OrderDto updatePaymentStatus(Long orderId, UpdatePaymentStatusRequest request)
-            throws CacheException, DataFactoryException;
+        /**
+         * Admin: Update payment status
+         */
+        OrderDto updatePaymentStatus(Long orderId, UpdatePaymentStatusRequest request)
+                        throws CacheException, DataFactoryException;
 
-    // ========== DELIVERY DRIVER OPERATIONS ==========
+        // ========== DELIVERY DRIVER OPERATIONS ==========
 
-    /**
-     * Get orders assigned to driver
-     */
-    List<OrderDto> getDriverAssignedOrders(String driverId) throws CacheException, DataFactoryException;
+        /**
+         * Get orders assigned to driver
+         */
+        List<OrderDto> getDriverAssignedOrders(String driverId) throws CacheException, DataFactoryException;
 
-    /**
-     * Mark order as out for delivery
-     */
-    OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException;
+        /**
+         * Mark order as out for delivery
+         */
+        OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException;
 
-    /**
-     * Mark order as delivered
-     */
-    OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException;
+        /**
+         * Mark order as delivered
+         */
+        OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException;
 
-    // ========== PRE-ORDER (LINKED TO RESERVATION) ==========
+        // ========== PRE-ORDER (LINKED TO RESERVATION) ==========
 
-    /**
-     * Create pre-order linked to reservation
-     */
-    OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, String userId) throws DataFactoryException;
+        /**
+         * Create pre-order linked to reservation
+         */
+        OrderDto createPreOrder(Long reservationId, CreateOrderRequest request, String userId)
+                        throws DataFactoryException;
 
-    // ========== EVENT HANDLING OPERATIONS ==========
+        /**
+         * Create guest pre-order linked to reservation (no authentication required)
+         */
+        OrderDto createGuestPreOrder(Long reservationId, CreateOrderRequest request) throws DataFactoryException;
 
-    /**
-     * Confirm pre-order when customer is seated (triggered by CustomerSeatedEvent)
-     */
-    void confirmPreOrder(Long orderId) throws CacheException, DataFactoryException;
+        // ========== EVENT HANDLING OPERATIONS ==========
 
-    /**
-     * Cancel order by orderId with reason (triggered by ReservationCancelledEvent)
-     */
-    void cancelOrderByEvent(Long orderId, String reason) throws CacheException, DataFactoryException;
+        /**
+         * Confirm pre-order when customer is seated (triggered by CustomerSeatedEvent)
+         */
+        void confirmPreOrder(Long orderId) throws CacheException, DataFactoryException;
+
+        /**
+         * Cancel order by orderId with reason (triggered by ReservationCancelledEvent)
+         */
+        void cancelOrderByEvent(Long orderId, String reason) throws CacheException, DataFactoryException;
 }

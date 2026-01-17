@@ -4,8 +4,16 @@ Description: Menu Service Lambda + DynamoDB Resources
 Parameters:
   LabRoleArn:
     Type: String
-    Default: arn:aws:iam::616967801866:role/LabRole
+    Default: arn:aws:iam::556607597153:role/LabRole
     Description: ARN of the LabRole to use for Lambda execution
+  InfraStackName:
+    Type: String
+    Default: restaurant-infra-2
+    Description: Name of the infrastructure stack to import exports from
+  S3BucketName:
+    Type: String
+    Default: restaurant-menu-images-556607597153
+    Description: S3 bucket name for menu images
 
 Resources:
   # -------------------------------------------------------------------------
@@ -54,6 +62,9 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME: !Ref MenuTable
+          S3_BUCKET_NAME: !Ref S3BucketName
+          COGNITO_USER_POOL_ID: 
+            Fn::ImportValue: !Sub "${InfraStackName}-UserPoolId"
       Code:
         ZipFile: |
           # Placeholder - deploy actual code via AWS CLI
