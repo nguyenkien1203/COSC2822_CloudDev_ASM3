@@ -6,10 +6,10 @@ Parameters:
     Type: String
     Default: arn:aws:iam::556607597153:role/LabRole
     Description: ARN of the LabRole to use for Lambda and Step Functions execution
-  InfraStackName:
+  ProfileServiceUrl:
     Type: String
-    Default: restaurant-infra-2
-    Description: Name of the infrastructure stack to import exports from
+    Default: http://restaurant-alb-696207792.us-east-1.elb.amazonaws.com
+    Description: URL of the profile service (ALB)
 
 Resources:
   # -------------------------------------------------------------------------
@@ -26,7 +26,7 @@ Resources:
       MemorySize: 256
       Environment:
         Variables:
-          PROFILE_SERVICE_URL: !Join ["", ["http://", !ImportValue {"Fn::Sub": "${InfraStackName}-ALBDnsName"}]]
+          PROFILE_SERVICE_URL: !Ref ProfileServiceUrl
       Code:
         ZipFile: |
           # Placeholder - deploy actual code via AWS CLI

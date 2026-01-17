@@ -38,7 +38,7 @@ restaurant:
 
 # Lambda Menu Service URL (API Gateway)
 menu-service:
-  url: ${MENU_SERVICE_URL:https://au1gqu8qxf.execute-api.us-east-1.amazonaws.com}
+  url: ${MENU_SERVICE_URL:https://nvkncf9aa6.execute-api.us-east-1.amazonaws.com}
 
 # Profile Service URL (ECS via ALB)  
 profile-service:
@@ -50,4 +50,4 @@ aws:
 
 # Step Functions Discount Calculator
 step-functions:
-  discount-calculator-arn: ${STEP_FUNCTIONS_DISCOUNT_ARN:}
+  discount-calculator-arn: ${STEP_FUNCTIONS_DISCOUNT_ARN:arn:aws:states:us-east-1:556607597153:stateMachine:discount-calculator}

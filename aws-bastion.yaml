@@ -39,8 +39,8 @@ Resources:
       InstanceType: t2.micro
       # vockey is the default key pair in AWS Learner Lab
       KeyName: vockey
-      # Amazon Linux 2023 AMI (us-east-1, x86_64)
-      ImageId: ami-0453ec754f44f9a4a
+      # Amazon Linux 2023 AMI - use SSM parameter for latest, or fallback to hardcoded
+      ImageId: ami-0453ec754f44f9a4a  # Amazon Linux 2023 (us-east-1)
       # Use LabInstanceProfile for Learner Lab
       IamInstanceProfile: LabInstanceProfile
       SubnetId: 
@@ -54,7 +54,8 @@ Resources:
         Fn::Base64: |
           #!/bin/bash
           yum update -y
-          yum install -y postgresql15
+          # Install PostgreSQL client
+          yum install -y postgresql16 || yum install -y postgresql15 || yum install -y postgresql
 
 Outputs:
   BastionPublicIP:
