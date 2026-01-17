@@ -13,6 +13,7 @@ import com.restaurant.orderservice.filter.OrderFilter;
 import com.restaurant.orderservice.service.MenuServiceClient;
 import com.restaurant.orderservice.service.OrderProducerService;
 import com.restaurant.orderservice.service.OrderService;
+import com.restaurant.orderservice.service.StepFunctionsDiscountService;
 import com.restaurant.redismodule.exception.CacheException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -39,6 +40,7 @@ public class OrderServiceImpl implements OrderService {
 
     private final OrderFactory orderFactory;
     private final MenuServiceClient menuServiceClient;
+    private final StepFunctionsDiscountService stepFunctionsDiscountService;
 
     @Autowired
     private final OrderProducerService orderProducerService;
@@ -51,11 +53,36 @@ public class OrderServiceImpl implements OrderService {
 
         List<OrderItemDto> orderItems = buildOrderItems(request.getItems());
 
-        // Calculate amounts
+        // Calculate base amounts
         BigDecimal subtotal = calculateSubtotal(orderItems);
         BigDecimal taxAmount = subtotal.multiply(TAX_RATE).setScale(2, java.math.RoundingMode.HALF_UP);
         BigDecimal deliveryFee = request.getOrderType() == OrderType.DELIVERY ? DELIVERY_FEE : BigDecimal.ZERO;
-        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee);
+
+        // Get membership discount for logged-in user using Step Functions
+        Integer discountPercentage = 0;
+        BigDecimal discountAmount = BigDecimal.ZERO;
+        String membershipRank = null;
+
+        if (userId != null && !userId.trim().isEmpty()) {
+            try {
+                // Call Step Functions discount calculator
+                DiscountResult discountResult = stepFunctionsDiscountService.calculateDiscount(userId, subtotal);
+                discountPercentage = discountResult.getDiscountPercentage();
+                discountAmount = discountResult.getDiscountAmount();
+                membershipRank = discountResult.getMembershipRank();
+
+                if (discountPercentage > 0) {
+                    log.info("Applied {}% membership discount ({}) for user: {}, discount amount: ${}",
+                            discountPercentage, membershipRank, userId, discountAmount);
+                }
+            } catch (Exception e) {
+                log.warn("Failed to calculate discount via Step Functions for user: {}, no discount applied. Error: {}",
+                        userId, e.getMessage());
+            }
+        }
+
+        // Calculate total: subtotal + tax + delivery - discount
+        BigDecimal totalAmount = subtotal.add(taxAmount).add(deliveryFee).subtract(discountAmount);
 
         OrderDto orderDto = OrderDto.builder()
                 .userId(userId)
@@ -66,6 +93,9 @@ public class OrderServiceImpl implements OrderService {
                 .subtotal(subtotal)
                 .taxAmount(taxAmount)
                 .deliveryFee(deliveryFee)
+                .discountPercentage(discountPercentage)
+                .discountAmount(discountAmount)
+                .membershipRank(membershipRank)
                 .totalAmount(totalAmount)
                 .deliveryAddress(request.getDeliveryAddress())
                 .reservationId(request.getReservationId())

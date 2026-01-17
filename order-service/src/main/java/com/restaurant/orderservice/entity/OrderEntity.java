@@ -68,8 +68,17 @@ public class OrderEntity implements IBaseEntity<Long> {
     @Column(name = "delivery_fee", precision = 10, scale = 2)
     private BigDecimal deliveryFee; // Constant fee for DELIVERY orders
 
+    @Column(name = "discount_percentage")
+    private Integer discountPercentage; // Membership discount percentage (5, 10, 15, 20)
+
+    @Column(name = "discount_amount", precision = 10, scale = 2)
+    private BigDecimal discountAmount; // Calculated discount amount
+
+    @Column(name = "membership_rank")
+    private String membershipRank; // Applied membership rank (SILVER, GOLD, PLATINUM, VIP)
+
     @Column(name = "total_amount", nullable = false, precision = 10, scale = 2)
-    private BigDecimal totalAmount; // subtotal + taxAmount + deliveryFee
+    private BigDecimal totalAmount; // subtotal + taxAmount + deliveryFee - discountAmount
 
     @Column(name = "estimated_pickup_time")
     private LocalDateTime estimatedPickupTime; // User input for TAKEAWAY orders

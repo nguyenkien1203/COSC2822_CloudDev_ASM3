@@ -2,6 +2,7 @@ package com.restaurant.profileservice.controller;
 
 import com.restaurant.factorymodule.exception.DataFactoryException;
 import com.restaurant.profileservice.dto.CreateProfileRequest;
+import com.restaurant.profileservice.dto.MembershipInfoDto;
 import com.restaurant.profileservice.dto.ProfileDto;
 import com.restaurant.profileservice.dto.UpdateProfileRequest;
 import com.restaurant.securitymodule.model.UserPrincipal;
@@ -147,5 +148,20 @@ public class ProfileController {
         log.info("GET /profiles/user/{} - Admin access", userId);
         ProfileDto profile = profileService.getProfileByUserId(userId);
         return ResponseEntity.ok(profile);
+    }
+
+    // ========== INTER-SERVICE ENDPOINTS ==========
+
+    /**
+     * Get membership info by userId (For internal service-to-service calls)
+     * This endpoint is used by order-service to get discount percentage
+     */
+    @GetMapping("/user/{userId}/membership")
+    public ResponseEntity<MembershipInfoDto> getMembershipInfo(@PathVariable String userId)
+            throws CacheException, DataFactoryException {
+
+        log.info("GET /profiles/user/{}/membership - Service call", userId);
+        MembershipInfoDto membershipInfo = profileService.getMembershipInfo(userId);
+        return ResponseEntity.ok(membershipInfo);
     }
 }
