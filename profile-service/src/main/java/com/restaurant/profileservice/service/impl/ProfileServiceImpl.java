@@ -4,9 +4,12 @@ import com.restaurant.factorymodule.exception.DataFactoryException;
 import com.restaurant.profileservice.dto.CreateProfileRequest;
 import com.restaurant.profileservice.dto.ProfileDto;
 import com.restaurant.profileservice.dto.UpdateProfileRequest;
+import com.restaurant.profileservice.entity.ProfileEntity;
+import com.restaurant.profileservice.enums.MembershipRank;
 import com.restaurant.profileservice.event.DeleteProfileEvent;
 import com.restaurant.profileservice.factory.ProfileFactory;
 import com.restaurant.profileservice.filter.ProfileFilter;
+import com.restaurant.profileservice.repository.ProfileRepository;
 import com.restaurant.profileservice.service.ProfileProducerService;
 import com.restaurant.profileservice.service.ProfileService;
 import com.restaurant.redismodule.exception.CacheException;
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Slf4j
@@ -27,6 +31,7 @@ import java.util.UUID;
 public class ProfileServiceImpl implements ProfileService {
 
     private final ProfileFactory profileFactory;
+    private final ProfileRepository profileRepository;
 
     @Autowired
     private final ProfileProducerService profileProducerService;
@@ -50,6 +55,8 @@ public class ProfileServiceImpl implements ProfileService {
                 .fullName(request.getFullName())
                 .phone(request.getPhone())
                 .address(request.getAddress())
+                .loyaltyPoints(0)
+                .membershipRank(MembershipRank.SILVER)
                 .build();
 
         return profileFactory.create(profileDto);
@@ -125,7 +132,8 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     @Transactional
-    public void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address) throws DataFactoryException {
+    public void createProfileFromUserRegistration(String userId, String email, String fullName, String phone,
+            String address) throws DataFactoryException {
         log.info("Auto-creating profile from user registration - userId: {}, email: {}", userId, email);
 
         // Check if profile already exists by email (in case of duplicate events)
@@ -136,15 +144,134 @@ public class ProfileServiceImpl implements ProfileService {
             log.warn("Profile already exists for email: {}, skipping creation", email);
             return;
         }
-        
+
         ProfileDto profileDto = ProfileDto.builder()
                 .userId(userId)
                 .email(email)
                 .fullName(fullName)
                 .phone(phone)
                 .address(address)
+                .loyaltyPoints(0)
+                .membershipRank(MembershipRank.SILVER)
                 .build();
         profileFactory.create(profileDto);
         log.info("Profile auto-created for email: {}", email);
     }
+
+    @Override
+    @Transactional
+    public void updateLoyaltyPoints(String userId, int pointsToAdd) throws DataFactoryException, CacheException {
+        log.info("Updating loyalty points for userId: {}, points to add: {}", userId, pointsToAdd);
+
+        // Get the profile entity for this user
+        Optional<ProfileEntity> profileEntityOpt = profileRepository.findByUserId(userId);
+        if (profileEntityOpt.isEmpty()) {
+            log.warn("Profile not found for userId: {}, skipping loyalty points update", userId);
+            return;
+        }
+
+        ProfileEntity profileEntity = profileEntityOpt.get();
+
+        // Get current loyalty points (default to 0 if null)
+        int currentPoints = profileEntity.getLoyaltyPoints() != null ? profileEntity.getLoyaltyPoints() : 0;
+
+        // Get current membership rank (default to SILVER if null)
+        MembershipRank currentRank = profileEntity.getMembershipRank() != null
+                ? profileEntity.getMembershipRank()
+                : MembershipRank.SILVER;
+
+        // Calculate new points
+        int newPoints = currentPoints + pointsToAdd;
+
+        // Get threshold for current rank
+        int threshold = getThresholdForRank(currentRank);
+
+        // Check if threshold is reached based on current rank
+        if (newPoints >= threshold) {
+            if (currentRank == MembershipRank.VIP) {
+                // For VIP, cap at max (10000) but don't reset
+                if (newPoints > VIP_MAX_POINTS) {
+                    profileEntity.setLoyaltyPoints(VIP_MAX_POINTS);
+                    log.info("VIP member reached max points cap for userId: {} (current: {}, adding: {}, new: {}). " +
+                            "Capping points at {}.",
+                            userId, currentPoints, pointsToAdd, newPoints, VIP_MAX_POINTS);
+                } else {
+                    profileEntity.setLoyaltyPoints(newPoints);
+                    log.info("Updated loyalty points for VIP member userId: {} from {} to {}",
+                            userId, currentPoints, newPoints);
+                }
+            } else if (currentRank == MembershipRank.PLATINUM) {
+                // For PLATINUM, upgrade to VIP when reaching 5000 points
+                MembershipRank newRank = upgradeMembershipRank(currentRank);
+                log.info("Loyalty points threshold reached for userId: {} (current: {}, adding: {}, new: {}). " +
+                        "Upgrading membership rank from {} to {} and resetting points to 0.",
+                        userId, currentPoints, pointsToAdd, newPoints, currentRank, newRank);
+                profileEntity.setLoyaltyPoints(0);
+                profileEntity.setMembershipRank(newRank);
+                log.info("Membership rank upgraded for user: {} from {} to {}", userId, currentRank, newRank);
+            } else {
+                // Upgrade to next rank (SILVER -> GOLD or GOLD -> PLATINUM)
+                MembershipRank newRank = upgradeMembershipRank(currentRank);
+                log.info("Loyalty points threshold reached for userId: {} (current: {}, adding: {}, new: {}). " +
+                        "Upgrading membership rank from {} to {} and resetting points to 0.",
+                        userId, currentPoints, pointsToAdd, newPoints, currentRank, newRank);
+                profileEntity.setLoyaltyPoints(0);
+                profileEntity.setMembershipRank(newRank);
+                log.info("Membership rank upgraded for user: {} from {} to {}", userId, currentRank, newRank);
+            }
+        } else {
+            // Update with new points (but cap VIP at max)
+            if (currentRank == MembershipRank.VIP && newPoints > VIP_MAX_POINTS) {
+                profileEntity.setLoyaltyPoints(VIP_MAX_POINTS);
+                log.info("VIP member points capped at max for userId: {} (current: {}, adding: {}, capped at: {})",
+                        userId, currentPoints, pointsToAdd, VIP_MAX_POINTS);
+            } else {
+                profileEntity.setLoyaltyPoints(newPoints);
+                log.info("Updated loyalty points for userId: {} from {} to {} (rank: {})",
+                        userId, currentPoints, newPoints, currentRank);
+            }
+        }
+
+        // Save the updated profile
+        profileRepository.save(profileEntity);
+
+        // Clear cache to reflect changes
+        profileFactory.getModel(profileEntity.getId(), null);
+        log.info("Successfully updated loyalty points for userId: {}", userId);
+    }
+
+    /**
+     * Get the points threshold for a given membership rank
+     * SILVER -> GOLD: 800 points
+     * GOLD -> PLATINUM: 1200 points (additional)
+     * PLATINUM -> VIP: 5000 points
+     * VIP: 10000 points (max)
+     */
+    private int getThresholdForRank(MembershipRank rank) {
+        return switch (rank) {
+            case SILVER -> SILVER_TO_GOLD_THRESHOLD; // 800 points
+            case GOLD -> GOLD_TO_PLATINUM_THRESHOLD; // 1200 points
+            case PLATINUM -> PLATINUM_TO_VIP_THRESHOLD; // 3000 points
+            case VIP -> VIP_MAX_POINTS; // 10000 points (cap, don't reset)
+        };
+    }
+
+    /**
+     * Upgrade membership rank to the next tier
+     * SILVER -> GOLD -> PLATINUM -> VIP (stays at VIP if already highest)
+     */
+    private MembershipRank upgradeMembershipRank(MembershipRank currentRank) {
+        return switch (currentRank) {
+            case SILVER -> MembershipRank.GOLD;
+            case GOLD -> MembershipRank.PLATINUM;
+            case PLATINUM -> MembershipRank.VIP;
+            case VIP -> MembershipRank.VIP; // Already at highest rank
+        };
+    }
+
+    // Points thresholds for each rank
+    private static final int SILVER_TO_GOLD_THRESHOLD = 800; // Points needed to upgrade from SILVER to GOLD
+    private static final int GOLD_TO_PLATINUM_THRESHOLD = 1200; // Additional points needed to upgrade from GOLD to
+    private static final int PLATINUM_TO_VIP_THRESHOLD = 3000; // Points needed to upgrade from PLATINUM to VIP
+    private static final int VIP_MAX_POINTS = 10000; // Maximum points for VIP rank (cap, don't reset)
 }

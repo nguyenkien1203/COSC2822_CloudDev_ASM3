@@ -42,7 +42,19 @@ public interface ProfileService {
 
     /**
      * Auto-create profile from user registration event
+     * 
      * @param userId Cognito sub (UUID string)
      */
-    void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address) throws DataFactoryException;
+    void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address)
+            throws DataFactoryException;
+
+    /**
+     * Update loyalty points for a member
+     * Adds points and handles max threshold (1000 points = free dessert, then reset
+     * to 0)
+     * 
+     * @param userId      Cognito sub (UUID string)
+     * @param pointsToAdd Points to add to current balance
+     */
+    void updateLoyaltyPoints(String userId, int pointsToAdd) throws DataFactoryException, CacheException;
 }
