@@ -4,6 +4,9 @@ dependencies {
 
 	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 
+	// AWS Step Functions SDK
+	implementation platform('software.amazon.awssdk:bom:2.25.0')
+	implementation 'software.amazon.awssdk:sfn'
 
 	// Internal modules
 	api project(':common-module:data')

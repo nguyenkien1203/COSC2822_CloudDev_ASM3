@@ -1,0 +1,132 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Step Functions Discount Calculator for Restaurant App
+
+Parameters:
+  LabRoleArn:
+    Type: String
+    Default: arn:aws:iam::556607597153:role/LabRole
+    Description: ARN of the LabRole to use for Lambda and Step Functions execution
+  InfraStackName:
+    Type: String
+    Default: restaurant-infra-2
+    Description: Name of the infrastructure stack to import exports from
+
+Resources:
+  # -------------------------------------------------------------------------
+  # Lambda Function: Get Membership Info
+  # -------------------------------------------------------------------------
+  GetMembershipLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: discount-get-membership
+      Runtime: python3.12
+      Handler: get_membership.handler
+      Role: !Ref LabRoleArn
+      Timeout: 30
+      MemorySize: 256
+      Environment:
+        Variables:
+          PROFILE_SERVICE_URL: !Join ["", ["http://", !ImportValue {"Fn::Sub": "${InfraStackName}-ALBDnsName"}]]
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via AWS CLI
+          def handler(event, context):
+              return {'membershipRank': 'SILVER', 'discountPercentage': 5, 'loyaltyPoints': 0}
+      Tags:
+        - Key: Application
+          Value: restaurant-app
+
+  # -------------------------------------------------------------------------
+  # Lambda Function: Calculate Discount
+  # -------------------------------------------------------------------------
+  CalculateDiscountLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: discount-calculate
+      Runtime: python3.12
+      Handler: calculate_discount.handler
+      Role: !Ref LabRoleArn
+      Timeout: 10
+      MemorySize: 128
+      Code:
+        ZipFile: |
+          # Placeholder - deploy actual code via AWS CLI
+          def handler(event, context):
+              return {'discountAmount': 0, 'discountPercentage': 0, 'membershipRank': 'SILVER'}
+      Tags:
+        - Key: Application
+          Value: restaurant-app
+
+  # -------------------------------------------------------------------------
+  # Step Functions State Machine (Express - Synchronous)
+  # -------------------------------------------------------------------------
+  DiscountCalculatorStateMachine:
+    Type: AWS::StepFunctions::StateMachine
+    Properties:
+      StateMachineName: discount-calculator
+      StateMachineType: EXPRESS
+      RoleArn: !Ref LabRoleArn
+      Definition:
+        Comment: "Discount Calculator - Gets membership info and calculates discount"
+        StartAt: GetMembershipInfo
+        States:
+          GetMembershipInfo:
+            Type: Task
+            Resource: !GetAtt GetMembershipLambda.Arn
+            InputPath: "$"
+            ResultPath: "$.membershipInfo"
+            Next: MergeAndCalculate
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: "$.error"
+                Next: DefaultDiscount
+                
+          MergeAndCalculate:
+            Type: Task
+            Resource: !GetAtt CalculateDiscountLambda.Arn
+            Parameters:
+              userId.$: "$.userId"
+              subtotal.$: "$.subtotal"
+              membershipRank.$: "$.membershipInfo.membershipRank"
+              discountPercentage.$: "$.membershipInfo.discountPercentage"
+              loyaltyPoints.$: "$.membershipInfo.loyaltyPoints"
+            ResultPath: "$"
+            End: true
+            Catch:
+              - ErrorEquals:
+                  - States.ALL
+                ResultPath: "$.error"
+                Next: DefaultDiscount
+                
+          DefaultDiscount:
+            Type: Pass
+            Result:
+              membershipRank: "SILVER"
+              discountPercentage: 0
+              discountAmount: 0
+              loyaltyPoints: 0
+            ResultPath: "$"
+            End: true
+      Tags:
+        - Key: Application
+          Value: restaurant-app
+
+Outputs:
+  StateMachineArn:
+    Description: Discount Calculator State Machine ARN
+    Value: !Ref DiscountCalculatorStateMachine
+    Export:
+      Name: DiscountCalculatorStateMachineArn
+      
+  GetMembershipLambdaArn:
+    Description: Get Membership Lambda ARN
+    Value: !GetAtt GetMembershipLambda.Arn
+    Export:
+      Name: GetMembershipLambdaArn
+      
+  CalculateDiscountLambdaArn:
+    Description: Calculate Discount Lambda ARN
+    Value: !GetAtt CalculateDiscountLambda.Arn
+    Export:
+      Name: CalculateDiscountLambdaArn

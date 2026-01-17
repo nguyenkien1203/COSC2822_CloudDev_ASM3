@@ -32,6 +32,9 @@ public class OrderDto implements IBaseModel<Long> {
     private BigDecimal subtotal;
     private BigDecimal taxAmount;
     private BigDecimal deliveryFee;
+    private Integer discountPercentage; // Membership discount percentage (5, 10, 15, 20)
+    private BigDecimal discountAmount; // Calculated discount amount
+    private String membershipRank; // Applied membership rank (SILVER, GOLD, PLATINUM, VIP)
     private BigDecimal totalAmount;
     private LocalDateTime estimatedPickupTime;
     private String deliveryAddress;

@@ -31,6 +31,8 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
                 .phone(entity.getPhone())
                 .email(entity.getEmail())
                 .address(entity.getAddress())
+                .loyaltyPoints(entity.getLoyaltyPoints())
+                .membershipRank(entity.getMembershipRank())
                 .createdAt(entity.getCreatedAt())
                 .updatedAt(entity.getUpdatedAt())
                 .build();
@@ -44,6 +46,9 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
                 .phone(model.getPhone())
                 .email(model.getEmail())
                 .address(model.getAddress())
+                .loyaltyPoints(model.getLoyaltyPoints() != null ? model.getLoyaltyPoints() : 0)
+                .membershipRank(model.getMembershipRank() != null ? model.getMembershipRank()
+                        : com.restaurant.profileservice.enums.MembershipRank.SILVER)
                 .build();
     }
 
@@ -66,6 +71,12 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
         if (model.getAddress() != null) {
             oldEntity.setAddress(model.getAddress());
         }
+        if (model.getLoyaltyPoints() != null) {
+            oldEntity.setLoyaltyPoints(model.getLoyaltyPoints());
+        }
+        if (model.getMembershipRank() != null) {
+            oldEntity.setMembershipRank(model.getMembershipRank());
+        }
 
         return oldEntity;
     }
@@ -80,12 +91,12 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
 
             @Override
             public Duration singleTtl() {
-                return Duration.ofMinutes(30);  // Cache single profile for 30 minutes
+                return Duration.ofMinutes(30); // Cache single profile for 30 minutes
             }
 
             @Override
             public Duration cacheListTtl() {
-                return Duration.ofMinutes(15);  // Cache list for 15 minutes
+                return Duration.ofMinutes(15); // Cache list for 15 minutes
             }
         };
     }
@@ -107,6 +118,7 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
 
         throw new DataFactoryException("Please provide id or filter with userId/email");
     }
+
     @Override
     public <F extends IFilter> boolean exists(Long id, F filter) throws DataFactoryException {
         if (id != null) {

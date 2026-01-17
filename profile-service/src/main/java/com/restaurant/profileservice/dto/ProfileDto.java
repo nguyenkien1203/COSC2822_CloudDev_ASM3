@@ -1,6 +1,7 @@
 package com.restaurant.profileservice.dto;
 
 import com.restaurant.data.model.IBaseModel;
+import com.restaurant.profileservice.enums.MembershipRank;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.Pattern;
 import lombok.Builder;
@@ -13,7 +14,7 @@ import java.time.LocalDateTime;
 public class ProfileDto implements IBaseModel<Long> {
     private Long id;
 
-    private String userId;  // Cognito sub (UUID string)
+    private String userId; // Cognito sub (UUID string)
 
     private String fullName;
 
@@ -24,6 +25,10 @@ public class ProfileDto implements IBaseModel<Long> {
     private String email;
 
     private String address;
+
+    private Integer loyaltyPoints;
+
+    private MembershipRank membershipRank;
 
     private LocalDateTime createdAt;
 

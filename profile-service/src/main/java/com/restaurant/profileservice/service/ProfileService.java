@@ -2,6 +2,7 @@ package com.restaurant.profileservice.service;
 
 import com.restaurant.factorymodule.exception.DataFactoryException;
 import com.restaurant.profileservice.dto.CreateProfileRequest;
+import com.restaurant.profileservice.dto.MembershipInfoDto;
 import com.restaurant.profileservice.dto.ProfileDto;
 import com.restaurant.profileservice.dto.UpdateProfileRequest;
 import com.restaurant.profileservice.filter.ProfileFilter;
@@ -42,7 +43,27 @@ public interface ProfileService {
 
     /**
      * Auto-create profile from user registration event
+     * 
      * @param userId Cognito sub (UUID string)
      */
-    void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address) throws DataFactoryException;
+    void createProfileFromUserRegistration(String userId, String email, String fullName, String phone, String address)
+            throws DataFactoryException;
+
+    /**
+     * Update loyalty points for a member
+     * Adds points and handles max threshold (1000 points = free dessert, then reset
+     * to 0)
+     * 
+     * @param userId      Cognito sub (UUID string)
+     * @param pointsToAdd Points to add to current balance
+     */
+    void updateLoyaltyPoints(String userId, int pointsToAdd) throws DataFactoryException, CacheException;
+
+    /**
+     * Get membership info for a user (used by other services to get discount)
+     * 
+     * @param userId Cognito sub (UUID string)
+     * @return MembershipInfoDto with rank, discount percentage, and loyalty points
+     */
+    MembershipInfoDto getMembershipInfo(String userId) throws CacheException, DataFactoryException;
 }

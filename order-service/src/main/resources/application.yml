@@ -39,3 +39,15 @@ restaurant:
 # Lambda Menu Service URL (API Gateway)
 menu-service:
   url: ${MENU_SERVICE_URL:https://au1gqu8qxf.execute-api.us-east-1.amazonaws.com}
+
+# Profile Service URL (ECS via ALB)  
+profile-service:
+  url: ${PROFILE_SERVICE_URL:http://localhost:8083}
+
+# AWS Configuration
+aws:
+  region: ${AWS_REGION:us-east-1}
+
+# Step Functions Discount Calculator
+step-functions:
+  discount-calculator-arn: ${STEP_FUNCTIONS_DISCOUNT_ARN:}

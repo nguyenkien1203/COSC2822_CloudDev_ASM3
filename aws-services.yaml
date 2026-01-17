@@ -295,6 +295,13 @@ Resources:
               Value: !ImportValue {"Fn::Sub": "${InfraStackName}-UserPoolId"}
             - Name: AWS_COGNITO_CLIENT_ID
               Value: !ImportValue {"Fn::Sub": "${InfraStackName}-UserPoolClientId"}
+            - Name: PROFILE_SERVICE_URL
+              Value: !Join ["", ["http://", !ImportValue {"Fn::Sub": "${InfraStackName}-ALBDnsName"}]]
+            - Name: STEP_FUNCTIONS_DISCOUNT_ARN
+              Value: !ImportValue DiscountCalculatorStateMachineArn
+            - Name: AWS_REGION
+              Value: !Ref "AWS::Region"
+
 
   ProfileTaskDef:
     Type: AWS::ECS::TaskDefinition
