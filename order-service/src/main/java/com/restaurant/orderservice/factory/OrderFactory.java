@@ -236,8 +236,7 @@ public class OrderFactory extends BaseCrudFactory<Long, OrderDto, Long, OrderEnt
             if (orderFilter.getDriverId() != null) {
                 return crudRepository.findByDriverIdAndStatusIn(
                         orderFilter.getDriverId(),
-                        List.of(com.restaurant.orderservice.enums.OrderStatus.READY,
-                                com.restaurant.orderservice.enums.OrderStatus.OUT_FOR_DELIVERY));
+                        List.of(com.restaurant.orderservice.enums.OrderStatus.CONFIRMED));
             }
         }
         return crudRepository.findAll();
@@ -259,8 +258,7 @@ public class OrderFactory extends BaseCrudFactory<Long, OrderDto, Long, OrderEnt
     // Custom methods
     public List<OrderDto> getKitchenQueue() throws CacheException, DataFactoryException {
         List<OrderEntity> entities = crudRepository.findKitchenQueue(
-                List.of(com.restaurant.orderservice.enums.OrderStatus.CONFIRMED,
-                        com.restaurant.orderservice.enums.OrderStatus.PREPARING));
+                List.of(com.restaurant.orderservice.enums.OrderStatus.CONFIRMED));
         return entities.stream().map(this::convertToModel).collect(Collectors.toList());
     }
 

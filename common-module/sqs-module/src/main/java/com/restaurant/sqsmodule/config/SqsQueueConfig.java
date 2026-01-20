@@ -19,6 +19,7 @@ public class SqsQueueConfig {
     public static final String ORDER_CREATED_QUEUE = "order-created";
     public static final String ORDER_UPDATED_QUEUE = "order-updated";
     public static final String ORDER_CANCELLED_QUEUE = "order-cancelled";
+    public static final String ORDER_COMPLETED_QUEUE = "order-completed";
     public static final String DELIVERY_ASSIGNED_QUEUE = "delivery-assigned";
     public static final String DELIVERY_COMPLETED_QUEUE = "delivery-completed";
     public static final String RESERVATION_CREATED_QUEUE = "reservation-created";

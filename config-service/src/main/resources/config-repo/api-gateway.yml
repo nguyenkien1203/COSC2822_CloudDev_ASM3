@@ -45,15 +45,21 @@ spring:
       globalcors:
         cors-configurations:
           '[/**]':
-            allowedOrigins: "*"
+            allowedOrigins:
+              - "http://localhost:3000"
+              - "http://localhost:5173"
+              - "http://restaurant-alb-696207792.us-east-1.elb.amazonaws.com"
+              - "https://nvkncf9aa6.execute-api.us-east-1.amazonaws.com"
+              - "http://restaurant-frontend-prod.eba-b5xcwdc4.us-east-1.elasticbeanstalk.com"
             allowedMethods:
               - GET
               - POST
               - PUT
               - DELETE
               - OPTIONS
+              - PATCH
             allowedHeaders: "*"
-            allow-credentials: false
+            allow-credentials: true
 
   # Kafka Consumer Group for API Gateway
   kafka:

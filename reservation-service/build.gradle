@@ -9,5 +9,10 @@ dependencies {
 	api project(':common-module:sqs-module')
 	api project(':common-module:security-module')
 
+	// AWS SNS for email notifications
+	implementation 'io.awspring.cloud:spring-cloud-aws-sns'
+
+	// OpenFeign for service-to-service calls
+	implementation 'org.springframework.cloud:spring-cloud-starter-openfeign'
 }
 

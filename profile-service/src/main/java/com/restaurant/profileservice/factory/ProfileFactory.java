@@ -27,6 +27,7 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
         return ProfileDto.builder()
                 .id(entity.getId())
                 .userId(entity.getUserId())
+                .role(entity.getRole())
                 .fullName(entity.getFullName())
                 .phone(entity.getPhone())
                 .email(entity.getEmail())
@@ -42,6 +43,7 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
     protected ProfileEntity createConvertToEntity(ProfileDto model) {
         return ProfileEntity.builder()
                 .userId(model.getUserId())
+                .role(model.getRole())
                 .fullName(model.getFullName())
                 .phone(model.getPhone())
                 .email(model.getEmail())
@@ -77,8 +79,28 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
         if (model.getMembershipRank() != null) {
             oldEntity.setMembershipRank(model.getMembershipRank());
         }
+        if (model.getRole() != null) {
+            oldEntity.setRole(model.getRole());
+        }
 
         return oldEntity;
+    }
+
+    @Override
+    public <F extends IFilter> java.util.List<ProfileDto> getList(F filter) {
+        java.util.List<ProfileEntity> entities;
+
+        if (filter instanceof ProfileFilter profileFilter && profileFilter.getRole() != null) {
+            // Filter by role
+            entities = crudRepository.findByRole(profileFilter.getRole());
+        } else {
+            // Return all profiles
+            entities = crudRepository.findAll();
+        }
+
+        return entities.stream()
+                .map(this::convertToModel)
+                .collect(java.util.stream.Collectors.toList());
     }
 
     @Override
@@ -90,13 +112,23 @@ public class ProfileFactory extends BaseCrudFactory<Long, ProfileDto, Long, Prof
             }
 
             @Override
+            public boolean cacheModel() {
+                return false; // Disable caching to ensure fresh data
+            }
+
+            @Override
+            public boolean cacheListModel() {
+                return false; // Disable list caching
+            }
+
+            @Override
             public Duration singleTtl() {
-                return Duration.ofMinutes(30); // Cache single profile for 30 minutes
+                return Duration.ofMinutes(30);
             }
 
             @Override
             public Duration cacheListTtl() {
-                return Duration.ofMinutes(15); // Cache list for 15 minutes
+                return Duration.ofMinutes(15);
             }
         };
     }

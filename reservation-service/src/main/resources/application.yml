@@ -11,10 +11,15 @@ spring:
         initial-interval: 1000
         multiplier: 1.1
         max-interval: 2000
+    aws:
+      sns:
+        reservation-topic-arn: ${AWS_SNS_RESERVATION_TOPIC_ARN:arn:aws:sns:us-east-1:556607597153:reservation-notifications-dev}
   jpa:
     hibernate:
       ddl-auto: update
     show-sql: false
+  jackson:
+    time-zone: Asia/Ho_Chi_Minh
 
 management:
   endpoint:
@@ -24,6 +29,8 @@ management:
     db:
       enabled: false
     redis:
+      enabled: false
+    sqs:
       enabled: false
 
 restaurant:
@@ -39,4 +46,8 @@ restaurant:
         type: PUBLIC
       - path: /api/reservations/confirmation/**
         type: PUBLIC
+
+# Service URLs for Feign clients
+profile-service:
+  url: http://restaurant-alb-696207792.us-east-1.elb.amazonaws.com
 

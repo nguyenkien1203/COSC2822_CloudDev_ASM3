@@ -139,6 +139,7 @@ public class OrderServiceImpl implements OrderService {
                 .notes(request.getNotes())
                 .estimatedPickupTime(request.getEstimatedPickupTime())
                 .orderItems(orderItems)
+                .reservationId(request.getReservationId())
                 .build();
 
         OrderDto createdOrder = orderFactory.create(orderDto);
@@ -277,8 +278,8 @@ public class OrderServiceImpl implements OrderService {
             throw new DataFactoryException("Can only assign driver to delivery orders");
         }
 
-        if (order.getStatus() != OrderStatus.READY) {
-            throw new DataFactoryException("Can only assign driver to orders that are READY");
+        if (order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new DataFactoryException("Can only assign driver to CONFIRMED delivery orders");
         }
 
         order.setDriverId(request.getDriverId());
@@ -298,7 +299,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDto createDineInOrder(AdminCreateDineInRequest request) throws DataFactoryException {
-        log.info("Admin creating dine-in order for table: {}", request.getTableId());
+        log.info("Admin creating dine-in order");
 
         List<OrderItemDto> orderItems = buildOrderItems(request.getItems());
 
@@ -315,7 +316,6 @@ public class OrderServiceImpl implements OrderService {
                 .taxAmount(taxAmount)
                 .deliveryFee(BigDecimal.ZERO)
                 .totalAmount(totalAmount)
-                .reservationId(request.getReservationId())
                 .notes(request.getNotes())
                 .estimatedReadyTime(LocalDateTime.now().plusMinutes(20)) // Faster for dine-in
                 .orderItems(orderItems)
@@ -338,10 +338,22 @@ public class OrderServiceImpl implements OrderService {
         PaymentStatus oldStatus = order.getPaymentStatus();
 
         order.setPaymentStatus(request.getNewPaymentStatus());
+
+        // When payment is marked as PAID, also mark the order as COMPLETED
+        if (request.getNewPaymentStatus() == PaymentStatus.PAID) {
+            log.info("Payment marked as PAID, setting order status to COMPLETED for order {}", orderId);
+            order.setStatus(OrderStatus.COMPLETED);
+        }
+
         OrderDto updatedOrder = orderFactory.update(order, null);
 
-        log.info("Payment status updated from {} to {} for order {}",
-                oldStatus, request.getNewPaymentStatus(), orderId);
+        // Publish ORDER_COMPLETED event when payment is PAID (for loyalty points)
+        if (request.getNewPaymentStatus() == PaymentStatus.PAID) {
+            orderProducerService.publishOrderCompletedEvent(updatedOrder);
+        }
+
+        log.info("Payment status updated from {} to {} for order {}, order status: {}",
+                oldStatus, request.getNewPaymentStatus(), orderId, updatedOrder.getStatus());
         return updatedOrder;
     }
 
@@ -357,8 +369,8 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
-    public OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException {
-        log.info("Marking order {} as out for delivery by driver {}", orderId, driverId);
+    public OrderDto markOrderCompleted(Long orderId, String driverId) throws CacheException, DataFactoryException {
+        log.info("Marking order {} as completed by driver {}", orderId, driverId);
 
         OrderDto order = orderFactory.getModel(orderId, null);
 
@@ -367,40 +379,16 @@ public class OrderServiceImpl implements OrderService {
             throw new UnauthorizedOrderAccessException("This order is not assigned to you");
         }
 
-        if (order.getStatus() != OrderStatus.READY) {
-            throw new DataFactoryException("Order must be READY to mark as out for delivery");
+        if (order.getStatus() != OrderStatus.CONFIRMED) {
+            throw new DataFactoryException("Order must be CONFIRMED to mark as completed");
         }
 
         OrderStatus oldStatus = order.getStatus();
-        order.setStatus(OrderStatus.OUT_FOR_DELIVERY);
-        OrderDto updatedOrder = orderFactory.update(order, null);
-
-        orderProducerService.publishOrderStatusChangedEvent(updatedOrder, oldStatus, OrderStatus.OUT_FOR_DELIVERY);
-
-        return updatedOrder;
-    }
-
-    @Override
-    public OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException {
-        log.info("Marking order {} as delivered by driver {}", orderId, driverId);
-
-        OrderDto order = orderFactory.getModel(orderId, null);
-
-        // Validate driver assignment
-        if (!driverId.equals(order.getDriverId())) {
-            throw new UnauthorizedOrderAccessException("This order is not assigned to you");
-        }
-
-        if (order.getStatus() != OrderStatus.OUT_FOR_DELIVERY) {
-            throw new DataFactoryException("Order must be OUT_FOR_DELIVERY to mark as delivered");
-        }
-
-        OrderStatus oldStatus = order.getStatus();
-        order.setStatus(OrderStatus.DELIVERED);
+        order.setStatus(OrderStatus.COMPLETED);
         order.setActualDeliveryTime(LocalDateTime.now());
         OrderDto updatedOrder = orderFactory.update(order, null);
 
-        orderProducerService.publishOrderStatusChangedEvent(updatedOrder, oldStatus, OrderStatus.DELIVERED);
+        orderProducerService.publishOrderStatusChangedEvent(updatedOrder, oldStatus, OrderStatus.COMPLETED);
         orderProducerService.publishDeliveryCompletedEvent(updatedOrder);
 
         return updatedOrder;
@@ -569,11 +557,8 @@ public class OrderServiceImpl implements OrderService {
         // Define valid transitions
         boolean valid = switch (current) {
             case PENDING -> next == OrderStatus.CONFIRMED || next == OrderStatus.CANCELLED;
-            case CONFIRMED -> next == OrderStatus.PREPARING || next == OrderStatus.CANCELLED;
-            case PREPARING -> next == OrderStatus.READY || next == OrderStatus.CANCELLED;
-            case READY -> next == OrderStatus.OUT_FOR_DELIVERY || next == OrderStatus.COMPLETED;
-            case OUT_FOR_DELIVERY -> next == OrderStatus.DELIVERED;
-            case DELIVERED, COMPLETED, CANCELLED -> false;
+            case CONFIRMED -> next == OrderStatus.COMPLETED || next == OrderStatus.CANCELLED;
+            case COMPLETED, CANCELLED -> false;
         };
 
         if (!valid) {

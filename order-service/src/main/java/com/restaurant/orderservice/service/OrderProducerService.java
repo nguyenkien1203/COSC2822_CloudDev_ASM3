@@ -17,4 +17,6 @@ public interface OrderProducerService {
     void publishDeliveryCompletedEvent(OrderDto order);
 
     void publishPreOrderCreatedEvent(OrderDto order);
+
+    void publishOrderCompletedEvent(OrderDto order);
 }

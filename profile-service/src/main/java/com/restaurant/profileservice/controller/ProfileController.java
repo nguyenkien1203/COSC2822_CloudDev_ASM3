@@ -99,13 +99,18 @@ public class ProfileController {
 
     /**
      * Get all profiles (Admin only)
+     * Supports filtering by role via query parameter: ?role=DRIVER
      */
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<List<ProfileDto>> getAllProfiles(ProfileFilter filter)
+    public ResponseEntity<List<ProfileDto>> getAllProfiles(
+            @RequestParam(required = false) String role)
             throws CacheException, DataFactoryException {
 
-        log.info("GET /profiles - Admin access");
+        log.info("GET /profiles - Admin access, role filter: {}", role);
+        ProfileFilter filter = ProfileFilter.builder()
+                .role(role)
+                .build();
         List<ProfileDto> profiles = profileService.getAllProfiles(filter);
         return ResponseEntity.ok(profiles);
     }
@@ -163,5 +168,19 @@ public class ProfileController {
         log.info("GET /profiles/user/{}/membership - Service call", userId);
         MembershipInfoDto membershipInfo = profileService.getMembershipInfo(userId);
         return ResponseEntity.ok(membershipInfo);
+    }
+
+    /**
+     * Get profile by userId (For internal service-to-service calls)
+     * This endpoint is used by reservation-service to get user email for
+     * notifications
+     */
+    @GetMapping("/internal/user/{userId}")
+    public ResponseEntity<ProfileDto> getProfileByUserIdInternal(@PathVariable String userId)
+            throws CacheException, DataFactoryException {
+
+        log.info("GET /profiles/internal/user/{} - Service call", userId);
+        ProfileDto profile = profileService.getProfileByUserId(userId);
+        return ResponseEntity.ok(profile);
     }
 }

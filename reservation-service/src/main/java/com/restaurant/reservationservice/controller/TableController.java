@@ -27,7 +27,7 @@ public class TableController {
 
     private final TableService tableService;
 
-    @GetMapping
+    @GetMapping("/all")
     public ResponseEntity<List<TableDto>> getAllTables() throws CacheException, DataFactoryException {
         log.info("GET /api/tables");
         List<TableDto> tables = tableService.getAllTables();

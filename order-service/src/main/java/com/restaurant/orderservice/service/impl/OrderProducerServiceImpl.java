@@ -158,4 +158,29 @@ public class OrderProducerServiceImpl implements OrderProducerService {
             log.error("Failed to publish PRE_ORDER_CREATED event for order: {}", order.getId(), e);
         }
     }
+
+    @Override
+    public void publishOrderCompletedEvent(OrderDto order) {
+        try {
+            OrderCompletedEvent event = OrderCompletedEvent.builder()
+                    .eventId(UUID.randomUUID().toString())
+                    .eventType("ORDER_COMPLETED")
+                    .timestamp(LocalDateTime.now())
+                    .source(serviceName)
+                    .version("1.0")
+                    .orderId(order.getId())
+                    .userId(order.getUserId())
+                    .orderType(order.getOrderType().name())
+                    .totalAmount(order.getTotalAmount())
+                    .status(order.getStatus().name())
+                    .paymentStatus(order.getPaymentStatus().name())
+                    .build();
+
+            sqsProducerService.sendEvent(SqsQueueConfig.ORDER_COMPLETED_QUEUE, event);
+            log.info("Published ORDER_COMPLETED event for order: {}, userId: {}, totalAmount: {}",
+                    order.getId(), order.getUserId(), order.getTotalAmount());
+        } catch (Exception e) {
+            log.error("Failed to publish ORDER_COMPLETED event for order: {}", order.getId(), e);
+        }
+    }
 }

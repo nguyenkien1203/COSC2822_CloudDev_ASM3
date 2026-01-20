@@ -76,7 +76,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .userId(userId)
                 .build();
         ProfileDto profileDto = profileFactory.getModel(filter);
-        return profileFactory.getModel(profileDto.getId());
+        return profileDto;
     }
 
     @Override
@@ -234,10 +234,17 @@ public class ProfileServiceImpl implements ProfileService {
         }
 
         // Save the updated profile
-        profileRepository.save(profileEntity);
+        // Create a DTO with the updates
+        ProfileDto updateDto = ProfileDto.builder()
+                .id(profileEntity.getId())
+                .loyaltyPoints(profileEntity.getLoyaltyPoints())
+                .membershipRank(profileEntity.getMembershipRank())
+                .build();
 
-        // Clear cache to reflect changes
-        profileFactory.getModel(profileEntity.getId(), null);
+        // Use factory to update, which handles caching
+        log.info("Calling profileFactory.update for profile id: {} with loyaltyPoints: {}",
+                profileEntity.getId(), profileEntity.getLoyaltyPoints());
+        profileFactory.update(updateDto);
         log.info("Successfully updated loyalty points for userId: {}", userId);
     }
 

@@ -30,13 +30,13 @@ import java.util.Set;
 @Configuration
 @ComponentScan(basePackages = "com.restaurant.redismodule")
 public class RedisConfig {
-    
+
     private final RedisProperties redisProperties;
-    
+
     public RedisConfig(RedisProperties redisProperties) {
         this.redisProperties = redisProperties;
     }
-    
+
     /**
      * Create Redis connection factory based on the configured mode
      */
@@ -44,7 +44,7 @@ public class RedisConfig {
     @ConditionalOnMissingBean(RedisConnectionFactory.class)
     public LettuceConnectionFactory redisConnectionFactory() {
         LettuceClientConfiguration clientConfig = getLettuceClientConfiguration();
-        
+
         LettuceConnectionFactory factory = switch (redisProperties.getMode()) {
             case SENTINEL -> new LettuceConnectionFactory(redisSentinelConfiguration(), clientConfig);
             case CLUSTER -> new LettuceConnectionFactory(redisClusterConfiguration(), clientConfig);
@@ -54,7 +54,7 @@ public class RedisConfig {
         factory.setDatabase(redisProperties.getDatabase());
         return factory;
     }
-    
+
     /**
      * Standalone configuration
      */
@@ -63,14 +63,14 @@ public class RedisConfig {
         config.setHostName(redisProperties.getStandalone().getHost());
         config.setPort(redisProperties.getStandalone().getPort());
         config.setDatabase(redisProperties.getDatabase());
-        
+
         if (redisProperties.getPassword() != null && !redisProperties.getPassword().isEmpty()) {
             config.setPassword(RedisPassword.of(redisProperties.getPassword()));
         }
-        
+
         return config;
     }
-    
+
     /**
      * Sentinel configuration
      */
@@ -78,7 +78,7 @@ public class RedisConfig {
         RedisSentinelConfiguration config = new RedisSentinelConfiguration();
         config.setMaster(redisProperties.getSentinel().getMaster());
         config.setDatabase(redisProperties.getDatabase());
-        
+
         if (redisProperties.getSentinel().getNodes() != null && !redisProperties.getSentinel().getNodes().isEmpty()) {
             Set<RedisNode> sentinelNodes = new HashSet<>();
             for (String node : redisProperties.getSentinel().getNodes()) {
@@ -89,32 +89,33 @@ public class RedisConfig {
             }
             config.setSentinels(sentinelNodes);
         }
-        
+
         if (redisProperties.getPassword() != null && !redisProperties.getPassword().isEmpty()) {
             config.setPassword(RedisPassword.of(redisProperties.getPassword()));
         }
-        
-        if (redisProperties.getSentinel().getPassword() != null && !redisProperties.getSentinel().getPassword().isEmpty()) {
+
+        if (redisProperties.getSentinel().getPassword() != null
+                && !redisProperties.getSentinel().getPassword().isEmpty()) {
             config.setSentinelPassword(RedisPassword.of(redisProperties.getSentinel().getPassword()));
         }
-        
+
         return config;
     }
-    
+
     /**
      * Cluster configuration
      */
     private RedisClusterConfiguration redisClusterConfiguration() {
         RedisClusterConfiguration config = new RedisClusterConfiguration(redisProperties.getCluster().getNodes());
         config.setMaxRedirects(redisProperties.getCluster().getMaxRedirects());
-        
+
         if (redisProperties.getPassword() != null && !redisProperties.getPassword().isEmpty()) {
             config.setPassword(RedisPassword.of(redisProperties.getPassword()));
         }
-        
+
         return config;
     }
-    
+
     /**
      * Configure Lettuce client with connection pooling
      */
@@ -123,52 +124,52 @@ public class RedisConfig {
         SocketOptions socketOptions = SocketOptions.builder()
                 .connectTimeout(redisProperties.getTimeout())
                 .build();
-        
+
         // Configure client options based on mode
         ClientOptions.Builder clientOptionsBuilder = ClientOptions.builder()
                 .socketOptions(socketOptions)
                 .timeoutOptions(TimeoutOptions.enabled(redisProperties.getTimeout()));
-        
+
         // For cluster mode, add cluster-specific options
         if (redisProperties.getMode() == RedisProperties.RedisMode.CLUSTER) {
             ClusterTopologyRefreshOptions topologyRefreshOptions = ClusterTopologyRefreshOptions.builder()
                     .enablePeriodicRefresh(Duration.ofMinutes(10))
                     .enableAllAdaptiveRefreshTriggers()
                     .build();
-            
+
             clientOptionsBuilder = ClusterClientOptions.builder()
                     .socketOptions(socketOptions)
                     .timeoutOptions(TimeoutOptions.enabled(redisProperties.getTimeout()))
                     .topologyRefreshOptions(topologyRefreshOptions);
         }
-        
+
         // Configure connection pool
         GenericObjectPoolConfig<StatefulConnection<?, ?>> poolConfig = new GenericObjectPoolConfig<>();
         poolConfig.setMaxTotal(redisProperties.getLettuce().getMaxActive());
         poolConfig.setMaxIdle(redisProperties.getLettuce().getMaxIdle());
         poolConfig.setMinIdle(redisProperties.getLettuce().getMinIdle());
         poolConfig.setMaxWait(redisProperties.getLettuce().getMaxWait());
-        
+
         if (redisProperties.getLettuce().getTimeBetweenEvictionRuns() != null) {
             poolConfig.setTimeBetweenEvictionRuns(redisProperties.getLettuce().getTimeBetweenEvictionRuns());
         }
-        
+
         // Build Lettuce configuration with pooling
-        LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder builder = 
-                LettucePoolingClientConfiguration.builder()
-                        .poolConfig(poolConfig)
-                        .clientOptions(clientOptionsBuilder.build())
-                        .commandTimeout(redisProperties.getTimeout());
-        
+        LettucePoolingClientConfiguration.LettucePoolingClientConfigurationBuilder builder = LettucePoolingClientConfiguration
+                .builder()
+                .poolConfig(poolConfig)
+                .clientOptions(clientOptionsBuilder.build())
+                .commandTimeout(redisProperties.getTimeout());
+
         // For sentinel and cluster, configure read-from strategy
-        if (redisProperties.getMode() == RedisProperties.RedisMode.SENTINEL || 
-            redisProperties.getMode() == RedisProperties.RedisMode.CLUSTER) {
+        if (redisProperties.getMode() == RedisProperties.RedisMode.SENTINEL ||
+                redisProperties.getMode() == RedisProperties.RedisMode.CLUSTER) {
             builder.readFrom(ReadFrom.REPLICA_PREFERRED); // Read from replicas when possible
         }
-        
+
         return builder.build();
     }
-    
+
     /**
      * Configure RedisTemplate with proper serializers
      */
@@ -179,21 +180,21 @@ public class RedisConfig {
             ObjectMapper objectMapper) {
         RedisTemplate<String, Object> template = new RedisTemplate<>();
         template.setConnectionFactory(redisConnectionFactory);
-        
+
         // Use String serializer for keys
         StringRedisSerializer stringSerializer = new StringRedisSerializer();
         template.setKeySerializer(stringSerializer);
         template.setHashKeySerializer(stringSerializer);
-        
+
         // Use JSON serializer for values
         GenericJackson2JsonRedisSerializer jsonSerializer = new GenericJackson2JsonRedisSerializer(objectMapper);
         template.setValueSerializer(jsonSerializer);
         template.setHashValueSerializer(jsonSerializer);
-        
+
         template.afterPropertiesSet();
         return template;
     }
-    
+
     /**
      * Configure ObjectMapper for CacheService
      */
@@ -203,7 +204,8 @@ public class RedisConfig {
         ObjectMapper mapper = new ObjectMapper();
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+        // Set timezone for JSON serialization
+        mapper.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Ho_Chi_Minh"));
         return mapper;
     }
 }
-

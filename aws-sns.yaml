@@ -1,0 +1,25 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'SNS Topics for Restaurant App Notifications'
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Description: Environment name (e.g., dev, prod)
+    Default: dev
+
+Resources:
+  # -------------------------------------------------------------------------
+  # SNS Topics
+  # -------------------------------------------------------------------------
+  ReservationNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub reservation-notifications-${EnvironmentName}
+      DisplayName: Reservation Confirmations
+
+Outputs:
+  ReservationNotificationsTopicArn:
+    Description: SNS Topic ARN for reservation notifications
+    Value: !Ref ReservationNotificationsTopic
+    Export:
+      Name: !Sub "${AWS::StackName}-ReservationNotificationsTopicArn"
