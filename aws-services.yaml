@@ -31,6 +31,11 @@ Parameters:
     Type: String
     Description: ARN of the LabRole (existing IAM role)
 
+  SnsStackName:
+    Type: String
+    Description: Name of the SNS stack to import exports from
+    Default: restaurant-sns
+
 Resources:
   # -------------------------------------------------------------------------
   # Target Groups
@@ -440,6 +445,8 @@ Resources:
               Value: !ImportValue {"Fn::Sub": "${InfraStackName}-UserPoolId"}
             - Name: AWS_COGNITO_CLIENT_ID
               Value: !ImportValue {"Fn::Sub": "${InfraStackName}-UserPoolClientId"}
+            - Name: AWS_SNS_RESERVATION_TOPIC_ARN
+              Value: !ImportValue {"Fn::Sub": "${SnsStackName}-ReservationNotificationsTopicArn"}
 
   # -------------------------------------------------------------------------
   # ECS Services
@@ -531,6 +538,15 @@ Resources:
         - ContainerName: reservation-service
           ContainerPort: 8080
           TargetGroupArn: !Ref ReservationTG
+
+  # -------------------------------------------------------------------------
+  # SNS Topics for Notifications
+  # -------------------------------------------------------------------------
+  ReservationNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub reservation-notifications-${EnvironmentName}
+      DisplayName: Reservation Confirmations
 
 Outputs:
   ApiEndpoint:

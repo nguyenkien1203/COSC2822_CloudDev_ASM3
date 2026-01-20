@@ -16,6 +16,8 @@ public class ProfileDto implements IBaseModel<Long> {
 
     private String userId; // Cognito sub (UUID string)
 
+    private String role; // User role (ADMIN, USER, DRIVER, KITCHEN)
+
     private String fullName;
 
     @Pattern(regexp = "^[0-9]{10,15}$", message = "Phone number must be 10-15 digits")

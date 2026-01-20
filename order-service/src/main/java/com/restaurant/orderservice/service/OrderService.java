@@ -85,14 +85,9 @@ public interface OrderService {
         List<OrderDto> getDriverAssignedOrders(String driverId) throws CacheException, DataFactoryException;
 
         /**
-         * Mark order as out for delivery
+         * Mark order as completed (by driver after delivery)
          */
-        OrderDto markOutForDelivery(Long orderId, String driverId) throws CacheException, DataFactoryException;
-
-        /**
-         * Mark order as delivered
-         */
-        OrderDto markDelivered(Long orderId, String driverId) throws CacheException, DataFactoryException;
+        OrderDto markOrderCompleted(Long orderId, String driverId) throws CacheException, DataFactoryException;
 
         // ========== PRE-ORDER (LINKED TO RESERVATION) ==========
 

@@ -25,6 +25,8 @@ public class ProfileEntity implements IBaseEntity<Long> {
     @Column(name = "user_id", unique = true)
     private String userId; // Cognito sub (UUID string)
 
+    private String role; // User role from Cognito (ADMIN, USER, DRIVER, KITCHEN)
+
     @Column(name = "full_name")
     private String fullName;
 

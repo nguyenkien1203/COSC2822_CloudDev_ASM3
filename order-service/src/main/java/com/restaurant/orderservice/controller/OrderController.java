@@ -177,7 +177,7 @@ public class OrderController {
     public ResponseEntity<OrderDto> createDineInOrder(
             @Valid @RequestBody AdminCreateDineInRequest request) throws DataFactoryException {
 
-        log.info("POST /api/orders/admin/dine-in - Creating dine-in order for table: {}", request.getTableId());
+        log.info("POST /api/orders/admin/dine-in - Creating dine-in order");
         OrderDto order = orderService.createDineInOrder(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(order);
     }
@@ -214,34 +214,18 @@ public class OrderController {
     }
 
     /**
-     * Mark order as out for delivery
+     * Mark order as completed (by driver)
      */
-    @PatchMapping("/{id}/out-for-delivery")
+    @PatchMapping("/{id}/completed")
     @PreAuthorize("hasRole('DRIVER')")
-    public ResponseEntity<OrderDto> markOutForDelivery(
+    public ResponseEntity<OrderDto> markOrderCompleted(
             @PathVariable Long id,
             Authentication authentication) throws CacheException, DataFactoryException {
 
         String driverId = extractUserId(authentication);
-        log.info("PATCH /api/orders/{}/out-for-delivery - driver: {}", id, driverId);
+        log.info("PATCH /api/orders/{}/completed - driver: {}", id, driverId);
 
-        OrderDto order = orderService.markOutForDelivery(id, driverId);
-        return ResponseEntity.ok(order);
-    }
-
-    /**
-     * Mark order as delivered
-     */
-    @PatchMapping("/{id}/delivered")
-    @PreAuthorize("hasRole('DRIVER')")
-    public ResponseEntity<OrderDto> markDelivered(
-            @PathVariable Long id,
-            Authentication authentication) throws CacheException, DataFactoryException {
-
-        String driverId = extractUserId(authentication);
-        log.info("PATCH /api/orders/{}/delivered - driver: {}", id, driverId);
-
-        OrderDto order = orderService.markDelivered(id, driverId);
+        OrderDto order = orderService.markOrderCompleted(id, driverId);
         return ResponseEntity.ok(order);
     }
 

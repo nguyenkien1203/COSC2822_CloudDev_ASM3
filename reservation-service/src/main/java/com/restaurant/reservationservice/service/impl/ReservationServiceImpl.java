@@ -13,7 +13,10 @@ import com.restaurant.reservationservice.filter.ReservationFilter;
 import com.restaurant.reservationservice.service.AvailabilityService;
 import com.restaurant.reservationservice.service.ReservationProducerService;
 import com.restaurant.reservationservice.service.ReservationService;
+import com.restaurant.reservationservice.service.SnsNotificationService;
 import com.restaurant.reservationservice.service.TableService;
+import com.restaurant.reservationservice.service.ProfileServiceClient;
+import com.restaurant.reservationservice.dto.ProfileInfoDto;
 import com.restaurant.reservationservice.utils.ConfirmationCodeGenerator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -35,6 +38,8 @@ public class ReservationServiceImpl implements ReservationService {
     private final AvailabilityService availabilityService;
     private final ConfirmationCodeGenerator confirmationCodeGenerator;
     private final TableService tableService;
+    private final SnsNotificationService snsNotificationService;
+    private final ProfileServiceClient profileServiceClient;
 
     @Override
     @Transactional
@@ -74,8 +79,18 @@ public class ReservationServiceImpl implements ReservationService {
 
         ReservationDto created = reservationFactory.create(reservation);
 
-        // Publish event
-        // producerService.publishReservationCreatedEvent(created);
+        // Fetch user email for notification if not present
+        if (created.getGuestEmail() == null) {
+            String userEmail = fetchUserEmail(userId);
+            if (userEmail != null) {
+                created.setGuestEmail(userEmail);
+                // Optionally update the guestName too if needed, but email is most important
+                // for notification
+            }
+        }
+
+        // Send confirmation email via SNS
+        snsNotificationService.sendReservationConfirmationEmail(created);
 
         return created;
     }
@@ -119,8 +134,8 @@ public class ReservationServiceImpl implements ReservationService {
 
         ReservationDto created = reservationFactory.create(reservation);
 
-        // Publish event
-        // producerService.publishReservationCreatedEvent(created);
+        // Send confirmation email via SNS
+        snsNotificationService.sendReservationConfirmationEmail(created);
 
         return created;
     }
@@ -352,6 +367,19 @@ public class ReservationServiceImpl implements ReservationService {
         if (request.getGuestPhone() == null || request.getGuestPhone().isBlank()) {
             throw new DataFactoryException("Guest phone is required");
         }
+    }
+
+    private String fetchUserEmail(String userId) {
+        try {
+            ProfileInfoDto profile = profileServiceClient.getProfileByUserId(userId);
+            if (profile != null && profile.getEmail() != null) {
+                log.info("Fetched user email from profile-service: {}", profile.getEmail());
+                return profile.getEmail();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to fetch user email for notification: {}", e.getMessage());
+        }
+        return null;
     }
 
     private void validateStatusTransition(ReservationStatus current, ReservationStatus next)

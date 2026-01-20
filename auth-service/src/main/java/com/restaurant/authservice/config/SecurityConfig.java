@@ -51,7 +51,8 @@ public class SecurityConfig {
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "http://restaurant-alb-696207792.us-east-1.elb.amazonaws.com",
-                "https://nvkncf9aa6.execute-api.us-east-1.amazonaws.com"));
+                "https://nvkncf9aa6.execute-api.us-east-1.amazonaws.com",
+                "http://restaurant-frontend-prod.eba-b5xcwdc4.us-east-1.elasticbeanstalk.com"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
